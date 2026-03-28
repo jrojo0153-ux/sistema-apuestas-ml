@@ -1,61 +1,76 @@
-"""
-data/features.py — Ingeniería de features (simplificada)
-"""
-
 import pandas as pd
-import numpy as np
 
 
-class IngenieroFeatures:
+def crear_features(df):
     """
-    Convierte datos de partidos en variables útiles para ML
+    Genera features robustas para el modelo
+    Compatible con datos incompletos (Odds API)
     """
 
-    def __init__(self):
-        self.feature_names_ = []
-        self.fitted_ = False
+    if df is None or df.empty:
+        print("⚠️ DataFrame vacío en features")
+        return pd.DataFrame()
 
-    def fit_transform(self, df: pd.DataFrame):
-        """
-        Entrenamiento: crea features y devuelve X, y
-        """
-        df = self._crear_features(df)
+    df = df.copy()
 
-        X = df[self.feature_names_].values
-        y = df["resultado"]
+    # -------------------------
+    # 1. ASEGURAR COLUMNAS
+    # -------------------------
+    columnas_necesarias = [
+        "goles_local",
+        "goles_visitante",
+        "cuota_local",
+        "cuota_empate",
+        "cuota_visitante"
+    ]
 
-        self.fitted_ = True
+    for col in columnas_necesarias:
+        if col not in df.columns:
+            print(f"⚠️ Columna faltante: {col} → usando default")
 
-        return X, y
+            if "cuota" in col:
+                df[col] = 2.0
+            else:
+                df[col] = 1
 
-    def transform(self, df: pd.DataFrame):
-        """
-        Inferencia: usa mismas features
-        """
-        if not self.fitted_:
-            raise RuntimeError("Primero debes ejecutar fit_transform()")
+    # -------------------------
+    # 2. LIMPIEZA BÁSICA
+    # -------------------------
+    df = df.fillna({
+        "goles_local": 1,
+        "goles_visitante": 1,
+        "cuota_local": 2.0,
+        "cuota_empate": 3.0,
+        "cuota_visitante": 2.0
+    })
 
-        df = self._crear_features(df)
+    # -------------------------
+    # 3. FEATURES PRINCIPALES
+    # -------------------------
+    df["diff_goles"] = df["goles_local"] - df["goles_visitante"]
 
-        return df[self.feature_names_].values
+    df["ratio_cuotas"] = df["cuota_local"] / df["cuota_visitante"]
 
-    def _crear_features(self, df: pd.DataFrame):
-        df = df.copy()
+    df["prob_impl_local"] = 1 / df["cuota_local"]
+    df["prob_impl_empate"] = 1 / df["cuota_empate"]
+    df["prob_impl_visitante"] = 1 / df["cuota_visitante"]
 
-        # 🎯 Feature 1: diferencia de goles
-        df["diff_goles"] = df["goles_local"] - df["goles_visitante"]
+    # -------------------------
+    # 4. SELECCIÓN FINAL
+    # -------------------------
+    features = [
+        "diff_goles",
+        "cuota_local",
+        "cuota_empate",
+        "cuota_visitante",
+        "ratio_cuotas",
+        "prob_impl_local",
+        "prob_impl_empate",
+        "prob_impl_visitante"
+    ]
 
-        # 🎯 Feature 2: total de goles
-        df["total_goles"] = df["goles_local"] + df["goles_visitante"]
+    X = df[features]
 
-        # 🎯 Feature 3: ratio ofensivo
-        df["ratio_goles"] = df["goles_local"] / (df["goles_visitante"] + 1)
+    print(f"🧠 Features generadas: {X.shape}")
 
-        # Lista de features usadas
-        self.feature_names_ = [
-            "diff_goles",
-            "total_goles",
-            "ratio_goles",
-        ]
-
-        return df
+    return X
