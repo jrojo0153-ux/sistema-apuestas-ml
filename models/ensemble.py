@@ -2,25 +2,18 @@ import numpy as np
 
 
 class EnsemblePredictor:
-    """
-    Modelo simple basado en probabilidades implícitas
-    (No requiere entrenamiento)
-    """
-
-    def __init__(self):
-        pass
 
     def predict_proba(self, X):
-        """
-        Genera probabilidades usando cuotas
-        """
+
+        if X is None or X.empty:
+            print("❌ Features vacías")
+            return np.array([])
 
         try:
             prob_local = X["prob_impl_local"].values
             prob_empate = X["prob_impl_empate"].values
             prob_visitante = X["prob_impl_visitante"].values
 
-            # normalizar
             total = prob_local + prob_empate + prob_visitante
 
             prob_local = prob_local / total
