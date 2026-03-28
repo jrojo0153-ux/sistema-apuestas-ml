@@ -1,52 +1,40 @@
-"""
-models/ensemble.py — Modelo ensemble (combinación de modelos)
-"""
-
 import numpy as np
-from sklearn.linear_model import LogisticRegression
-from sklearn.ensemble import RandomForestClassifier
 
 
 class EnsemblePredictor:
     """
-    Combina múltiples modelos para mejorar predicción
+    Modelo simple basado en probabilidades implícitas
+    (No requiere entrenamiento)
     """
 
     def __init__(self):
-        self.model1 = LogisticRegression(max_iter=1000)
-        self.model2 = RandomForestClassifier(
-            n_estimators=100,
-            max_depth=5,
-            random_state=42
-        )
-        self.fitted_ = False
-
-    def fit(self, X, y):
-        """
-        Entrena ambos modelos
-        """
-        self.model1.fit(X, y)
-        self.model2.fit(X, y)
-        self.fitted_ = True
+        pass
 
     def predict_proba(self, X):
         """
-        Promedia probabilidades de ambos modelos
+        Genera probabilidades usando cuotas
         """
-        if not self.fitted_:
-            raise RuntimeError("Modelo no entrenado")
 
-        p1 = self.model1.predict_proba(X)
-        p2 = self.model2.predict_proba(X)
+        try:
+            prob_local = X["prob_impl_local"].values
+            prob_empate = X["prob_impl_empate"].values
+            prob_visitante = X["prob_impl_visitante"].values
 
-        # Promedio simple (ensemble)
-        probs = (p1 + p2) / 2
+            # normalizar
+            total = prob_local + prob_empate + prob_visitante
 
-        return probs
+            prob_local = prob_local / total
+            prob_empate = prob_empate / total
+            prob_visitante = prob_visitante / total
 
-    def predict(self, X):
-        """
-        Devuelve clase final
-        """
-        probs = self.predict_proba(X)
-        return np.argmax(probs, axis=1)
+            probs = np.vstack([
+                prob_local,
+                prob_empate,
+                prob_visitante
+            ]).T
+
+            return probs
+
+        except Exception as e:
+            print(f"❌ Error en modelo: {e}")
+            return np.array([])
