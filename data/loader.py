@@ -4,7 +4,8 @@ import os
 
 API_KEY = os.getenv("API_KEY_ODDS")
 
-def cargar_datos():
+
+def cargar_cuotas():
     url = "https://api.the-odds-api.com/v4/sports/soccer/odds"
 
     params = {
@@ -16,7 +17,8 @@ def cargar_datos():
     res = requests.get(url, params=params)
 
     if res.status_code != 200:
-        raise Exception("Error en Odds API")
+        print(f"❌ Error Odds API: {res.status_code}")
+        return pd.DataFrame()
 
     data = res.json()
 
@@ -44,12 +46,7 @@ def cargar_datos():
                 "equipo_visitante": away,
                 "cuota_local": cuota_local,
                 "cuota_empate": cuota_empate,
-                "cuota_visitante": cuota_visitante,
-
-                # dummy para features
-                "goles_local": 1,
-                "goles_visitante": 1,
-                "resultado": 0
+                "cuota_visitante": cuota_visitante
             })
 
         except:
@@ -57,6 +54,6 @@ def cargar_datos():
 
     df = pd.DataFrame(partidos)
 
-    print(f"🌍 Live partidos: {len(df)}")
+    print(f"🌍 Cuotas disponibles: {len(df)}")
 
     return df
