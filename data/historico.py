@@ -1,18 +1,19 @@
 import requests
 import pandas as pd
 import os
-
+from datetime import datetime
 
 API_KEY = os.getenv("API_KEY_FOOTBALL")
 
 
-def cargar_historico():
+def cargar_partidos_hoy():
     """
-    Carga partidos históricos reales desde Football-Data
-    Versión robusta con manejo de errores
+    Obtiene partidos de HOY (plan gratuito compatible)
     """
 
-    url = "https://api.football-data.org/v4/competitions/PL/matches"
+    hoy = datetime.utcnow().date()
+
+    url = f"https://api.football-data.org/v4/matches?dateFrom={hoy}&dateTo={hoy}"
 
     headers = {
         "X-Auth-Token": API_KEY
@@ -20,9 +21,6 @@ def cargar_historico():
 
     res = requests.get(url, headers=headers)
 
-    # -------------------------
-    # 1. VALIDAR STATUS
-    # -------------------------
     if res.status_code != 200:
         print(f"❌ Error API: {res.status_code}")
         print(res.text)
@@ -30,63 +28,31 @@ def cargar_historico():
 
     data = res.json()
 
-    # -------------------------
-    # 2. VALIDAR RESPUESTA
-    # -------------------------
-    matches = data.get("matches", None)
+    matches = data.get("matches", [])
 
-    if matches is None:
-        print("❌ ERROR: 'matches' no existe en respuesta")
-        print("DEBUG:", data)
+    if not matches:
+        print("⚠️ No hay partidos hoy")
         return pd.DataFrame()
 
-    if len(matches) == 0:
-        print("⚠️ No hay partidos disponibles")
-        return pd.DataFrame()
-
-    # -------------------------
-    # 3. PROCESAR DATOS
-    # -------------------------
     partidos = []
 
     for m in matches:
-
-        # Solo partidos terminados
-        if m.get("status") != "FINISHED":
-            continue
-
         try:
-            goles_local = m["score"]["fullTime"]["home"]
-            goles_visitante = m["score"]["fullTime"]["away"]
-
-            # Validar datos
-            if goles_local is None or goles_visitante is None:
-                continue
-
-            # Resultado
-            if goles_local > goles_visitante:
-                resultado = 0
-            elif goles_local == goles_visitante:
-                resultado = 1
-            else:
-                resultado = 2
-
             partidos.append({
                 "equipo_local": m["homeTeam"]["name"],
                 "equipo_visitante": m["awayTeam"]["name"],
-                "goles_local": goles_local,
-                "goles_visitante": goles_visitante,
-                "resultado": resultado
+
+                # placeholders (se combinarán con odds)
+                "goles_local": 1,
+                "goles_visitante": 1,
+                "resultado": 0
             })
 
-        except Exception as e:
+        except:
             continue
 
-    # -------------------------
-    # 4. DATAFRAME FINAL
-    # -------------------------
     df = pd.DataFrame(partidos)
 
-    print(f"📚 Histórico válido: {len(df)} partidos")
+    print(f"📅 Partidos hoy: {len(df)}")
 
     return df
