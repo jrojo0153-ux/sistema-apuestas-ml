@@ -1,0 +1,15 @@
+# Sistema de Picks Deportivos — Dependencias
+# pip install -r requirements.txt
+
+# HTTP / APIs
+requests>=2.31.0
+
+# ML (opcional — se activa automáticamente con historial suficiente)
+scikit-learn>=1.3.0
+numpy>=1.24.0
+
+# Matemáticas / estadística
+scipy>=1.11.0
+
+# Utilidades (opcionales)
+python-dotenv>=1.0.0  # alternativa al cargador manual de .env
