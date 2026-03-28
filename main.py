@@ -1,60 +1,44 @@
-"""
-main.py — Orquestador principal del sistema de predicción
-Versión simplificada para GitHub Actions
-"""
-
-import sys
-from pathlib import Path
-
-# Ajustar path para imports
-sys.path.append(str(Path(__file__).parent))
-
-# Imports del sistema
 from data.loader import cargar_datos
-from data.features import IngenieroFeatures
+from data.historico import cargar_historico
+from features.features import crear_features
 from models.ensemble import EnsemblePredictor
 from engine.ev_kelly import MotorEV
-from engine.backtester import Backtester
-from portfolio.bankroll import GestorBankroll
 
 def main():
-    print("🚀 Iniciando sistema de apuestas...")
+    print("🚀 SISTEMA REAL INICIADO")
 
-    # 1. Cargar datos
-    print("📊 Cargando datos...")
-    df = cargar_datos()
+    # -------------------------
+    # 1. ENTRENAR MODELO
+    # -------------------------
+    df_hist = cargar_historico()
 
-    # 2. Features
-    print("⚙️ Generando features...")
-    fe = IngenieroFeatures()
-    X, y = fe.fit_transform(df)
+    X_hist = crear_features(df_hist)
+    y_hist = df_hist["resultado"]
 
-    # 3. Modelo
-    print("🤖 Entrenando modelo...")
     model = EnsemblePredictor()
-    model.fit(X, y)
+    model.fit(X_hist, y_hist)
 
-    # 4. Predicciones
-    print("🔮 Generando predicciones...")
-    probs = model.predict_proba(X)
+    print("✅ Modelo entrenado")
 
-    # 5. EV + Kelly
-    print("💰 Calculando valor esperado...")
+    # -------------------------
+    # 2. DATOS LIVE
+    # -------------------------
+    df_live = cargar_datos()
+
+    X_live = crear_features(df_live)
+
+    # -------------------------
+    # 3. PREDICCIÓN
+    # -------------------------
+    probs = model.predict_proba(X_live)
+
+    # -------------------------
+    # 4. EV + KELLY
+    # -------------------------
     motor = MotorEV()
-    señales = motor.generar_senales(df, probs)
+    señales = motor.generar_senales(df_live, probs)
 
-    # 6. Backtesting
-    print("📉 Ejecutando backtesting...")
-    bt = Backtester()
-    resultado = bt.run(df, señales)
-
-    # 7. Bankroll
-    print("🏦 Gestionando bankroll...")
-    gestor = GestorBankroll()
-    for s in señales:
-        gestor.registrar_apuesta(s)
-
-    print("✅ Sistema finalizado correctamente")
+    print(f"💰 Señales: {len(señales)}")
 
 if __name__ == "__main__":
     main()
