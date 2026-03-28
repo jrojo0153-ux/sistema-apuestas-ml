@@ -1,50 +1,68 @@
 """
-data/loader.py — Generador de datos de fútbol (simplificado)
+data/loader.py — SOLO Odds API (versión estable)
 """
 
+import requests
 import pandas as pd
-import numpy as np
+import os
+
+API_KEY = os.getenv("API_KEY_ODDS")
 
 
-def cargar_datos(n_partidos: int = 200):
-    """
-    Genera datos simulados de partidos de fútbol
-    """
+def cargar_datos():
+    url = "https://api.the-odds-api.com/v4/sports/soccer/odds"
 
-    np.random.seed(42)
+    params = {
+        "apiKey": API_KEY,
+        "regions": "eu",
+        "markets": "h2h"
+    }
 
-    data = []
+    res = requests.get(url, params=params)
 
-    for i in range(n_partidos):
-        equipo_local = f"Equipo_{np.random.randint(1, 20)}"
-        equipo_visitante = f"Equipo_{np.random.randint(1, 20)}"
+    if res.status_code != 200:
+        raise Exception(f"Error API: {res.status_code}")
 
-        goles_local = np.random.poisson(1.5)
-        goles_visitante = np.random.poisson(1.2)
+    data = res.json()
 
-        # Resultado
-        if goles_local > goles_visitante:
-            resultado = 0  # local
-        elif goles_local == goles_visitante:
-            resultado = 1  # empate
-        else:
-            resultado = 2  # visitante
+    partidos = []
 
-        data.append({
-            "equipo_local": equipo_local,
-            "equipo_visitante": equipo_visitante,
-            "goles_local": goles_local,
-            "goles_visitante": goles_visitante,
-            "resultado": resultado,
+    for game in data:
+        try:
+            home = game["home_team"]
+            away = game["away_team"]
 
-            # cuotas simuladas
-            "cuota_local": round(np.random.uniform(1.5, 3.5), 2),
-            "cuota_empate": round(np.random.uniform(2.5, 4.0), 2),
-            "cuota_visitante": round(np.random.uniform(1.5, 3.5), 2),
-        })
+            book = game["bookmakers"][0]
+            outcomes = book["markets"][0]["outcomes"]
 
-    df = pd.DataFrame(data)
+            # IMPORTANTE: Odds API incluye empate a veces
+            if len(outcomes) == 3:
+                cuota_local = outcomes[0]["price"]
+                cuota_empate = outcomes[1]["price"]
+                cuota_visitante = outcomes[2]["price"]
+            else:
+                cuota_local = outcomes[0]["price"]
+                cuota_empate = 3.0  # fallback
+                cuota_visitante = outcomes[1]["price"]
 
-    print(f"✅ Datos generados: {len(df)} partidos")
+            partidos.append({
+                "equipo_local": home,
+                "equipo_visitante": away,
+                "cuota_local": cuota_local,
+                "cuota_empate": cuota_empate,
+                "cuota_visitante": cuota_visitante,
+
+                # ⚠️ datos dummy (por ahora)
+                "goles_local": 1,
+                "goles_visitante": 1,
+                "resultado": 0
+            })
+
+        except Exception as e:
+            continue
+
+    df = pd.DataFrame(partidos)
+
+    print(f"🌍 Partidos cargados: {len(df)}")
 
     return df
