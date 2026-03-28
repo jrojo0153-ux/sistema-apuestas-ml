@@ -1,13 +1,8 @@
-"""
-data/loader.py — SOLO Odds API (versión estable)
-"""
-
 import requests
 import pandas as pd
 import os
 
 API_KEY = os.getenv("API_KEY_ODDS")
-
 
 def cargar_datos():
     url = "https://api.the-odds-api.com/v4/sports/soccer/odds"
@@ -21,7 +16,7 @@ def cargar_datos():
     res = requests.get(url, params=params)
 
     if res.status_code != 200:
-        raise Exception(f"Error API: {res.status_code}")
+        raise Exception("Error en Odds API")
 
     data = res.json()
 
@@ -35,14 +30,13 @@ def cargar_datos():
             book = game["bookmakers"][0]
             outcomes = book["markets"][0]["outcomes"]
 
-            # IMPORTANTE: Odds API incluye empate a veces
             if len(outcomes) == 3:
                 cuota_local = outcomes[0]["price"]
                 cuota_empate = outcomes[1]["price"]
                 cuota_visitante = outcomes[2]["price"]
             else:
                 cuota_local = outcomes[0]["price"]
-                cuota_empate = 3.0  # fallback
+                cuota_empate = 3.0
                 cuota_visitante = outcomes[1]["price"]
 
             partidos.append({
@@ -52,17 +46,17 @@ def cargar_datos():
                 "cuota_empate": cuota_empate,
                 "cuota_visitante": cuota_visitante,
 
-                # ⚠️ datos dummy (por ahora)
+                # dummy para features
                 "goles_local": 1,
                 "goles_visitante": 1,
                 "resultado": 0
             })
 
-        except Exception as e:
+        except:
             continue
 
     df = pd.DataFrame(partidos)
 
-    print(f"🌍 Partidos cargados: {len(df)}")
+    print(f"🌍 Live partidos: {len(df)}")
 
     return df
