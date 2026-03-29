@@ -2,7 +2,7 @@ name: Run Betting Bot IA PRO
 
 on:
   schedule:
-    - cron: "0 */4 * * *"
+    - cron: "0 */6 * * *"
   workflow_dispatch:
 
 jobs:
@@ -10,49 +10,38 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 📥 CLONAR REPO
-      - name: 📥 Clonar repositorio
-        uses: actions/checkout@v3
+      - name: Clonar repo
+        uses: actions/checkout@v4
 
-      # 🐍 PYTHON
-      - name: 🐍 Configurar Python
+      - name: Configurar Python
         uses: actions/setup-python@v4
         with:
           python-version: "3.10"
 
-      # 📦 DEPENDENCIAS
-      - name: 📦 Instalar dependencias
-        run: |
-          pip install --upgrade pip
-          pip install -r requirements.txt
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
 
-      # 🔽 DESCARGAR MODELO (SI EXISTE)
-      - name: 📥 Descargar modelo previo
+      # ⚠️ Descarga solo si existe
+      - name: Descargar modelo previo
+        continue-on-error: true
         uses: actions/download-artifact@v4
         with:
           name: modelo-ia
           path: models/
-        continue-on-error: true
 
-      # 🔐 VARIABLES
-      - name: 🔐 Variables de entorno
-        env:
-          API_KEY_ODDS: ${{ secrets.API_KEY_ODDS }}
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      - name: Variables de entorno
         run: echo "Variables cargadas"
 
-      # 🚀 EJECUTAR BOT
-      - name: 🚀 Ejecutar bot
+      - name: Ejecutar bot
         env:
           API_KEY_ODDS: ${{ secrets.API_KEY_ODDS }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: python main.py
 
-      # 💾 GUARDAR MODELO ACTUALIZADO
-      - name: 💾 Guardar modelo IA
+      - name: Guardar modelo IA
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: modelo-ia
           path: models/modelo.pkl
-          if-no-files-found: ignore
