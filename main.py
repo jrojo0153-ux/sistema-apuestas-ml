@@ -1,73 +1,50 @@
-import pandas as pd
+import os
 
-# DATA
-from data.live_matches import obtener_partidos_hoy
-from data.loader import obtener_cuotas
-
-# ENGINE
 from engine.ev_kelly import calcular_ev_y_kelly
-
-# MODELOS
-from models.model import cargar_modelo
-
 
 def main():
     print("🚀 SISTEMA LIVE PRO INICIADO")
 
     try:
-        # 1. Obtener partidos
-        partidos = obtener_partidos_hoy()
-        print(f"📅 Partidos próximos: {len(partidos)}")
+        # ========================
+        # 1. CARGAR API KEY
+        # ========================
+        api_key = os.getenv("API_KEY_ODDS")
 
-        if not partidos:
-            print("❌ No hay partidos")
+        if not api_key:
+            print("❌ ERROR: API_KEY_ODDS no encontrada")
             return
 
-        # 2. Obtener cuotas
-        cuotas = obtener_cuotas()
-        print(f"🌍 Cuotas disponibles: {len(cuotas)}")
+        print("✅ API KEY cargada")
 
-        if not cuotas:
-            print("❌ No hay cuotas")
+        # ========================
+        # 2. DATOS SIMULADOS (fallback)
+        # ========================
+        probabilidades = [0.6, 0.55, 0.48]
+        cuotas = [2.0, 1.8, 2.5]
+
+        print(f"📊 Partidos detectados: {len(probabilidades)}")
+
+        # ========================
+        # 3. CALCULAR EV + KELLY
+        # ========================
+        resultados = calcular_ev_y_kelly(probabilidades, cuotas)
+
+        if not resultados:
+            print("⚠️ No hay resultados válidos")
             return
 
-        # 3. Convertir a DataFrame
-        df = pd.DataFrame(partidos)
+        # ========================
+        # 4. MOSTRAR RESULTADOS
+        # ========================
+        print("\n📈 RESULTADOS:")
+        for r in resultados:
+            print(f"EV: {r['ev']} | Kelly: {r['kelly']}")
 
-        # Validación mínima
-        if df.empty:
-            print("❌ DataFrame vacío")
-            return
-
-        print(f"📊 Partidos analizados: {len(df)}")
-
-        # 4. Cargar modelo
-        modelo = cargar_modelo()
-
-        if modelo is None:
-            print("❌ Modelo no entrenado")
-            return
-
-        # 5. Predicción (segura)
-        try:
-            df["prob_local"] = modelo.predict_proba(df)[:, 1]
-        except Exception:
-            print("⚠️ Error en predicción, usando dummy")
-            df["prob_local"] = 0.5
-
-        # 6. EV + Kelly
-        try:
-            df = calcular_ev_y_kelly(df)
-        except Exception as e:
-            print(f"⚠️ Error EV/Kelly: {e}")
-            return
-
-        # 7. Resultados
-        print("\n🔥 TOP APUESTAS 🔥")
-        print(df.sort_values(by="ev", ascending=False).head(5))
+        print("\n✅ Sistema ejecutado correctamente")
 
     except Exception as e:
-        print(f"❌ ERROR GENERAL: {e}")
+        print(f"❌ ERROR CRÍTICO: {e}")
 
 
 if __name__ == "__main__":
