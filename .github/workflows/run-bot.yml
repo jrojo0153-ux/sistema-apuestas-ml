@@ -2,7 +2,7 @@ name: Run Betting Bot IA PRO
 
 on:
   schedule:
-    - cron: "0 */6 * * *"
+    - cron: "*/30 * * * *"
   workflow_dispatch:
 
 jobs:
@@ -10,37 +10,35 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Clonar repo
+      - name: 📥 Clonar repo
         uses: actions/checkout@v4
 
-      - name: Configurar Python
-        uses: actions/setup-python@v4
+      - name: 🐍 Configurar Python
+        uses: actions/setup-python@v5
         with:
           python-version: "3.10"
 
-      - name: Instalar dependencias
-        run: pip install -r requirements.txt
+      - name: 📦 Instalar dependencias
+        run: |
+          pip install -r requirements.txt
 
-      # ⚠️ Descarga solo si existe
-      - name: Descargar modelo previo
-        continue-on-error: true
+      - name: 📥 Descargar modelo previo (si existe)
         uses: actions/download-artifact@v4
+        continue-on-error: true
         with:
           name: modelo-ia
           path: models/
 
-      - name: Variables de entorno
+      - name: 🔐 Variables entorno
         run: echo "Variables cargadas"
 
-      - name: Ejecutar bot
+      - name: 🚀 Ejecutar bot
         env:
-          API_KEY_ODDS: ${{ secrets.API_KEY_ODDS }}
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: python main.py
 
-      - name: Guardar modelo IA
-        if: always()
+      - name: 💾 Guardar modelo IA
         uses: actions/upload-artifact@v4
         with:
           name: modelo-ia
