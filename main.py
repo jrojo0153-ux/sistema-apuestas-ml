@@ -1,15 +1,15 @@
 from data.live_matches import obtener_partidos_hoy
 from data.odds_api import obtener_cuotas
-
-from models.modelo_ia import cargar_modelo, predecir
+from models.model import cargar_modelo, predecir
 from engine.ev_kelly import calcular_ev_y_kelly
 from portfolio.bankroll import calcular_apuesta
-
 from alerts.telegram import enviar_alerta
 
 
 def main():
     print("🚀 SISTEMA PRO IA INICIADO")
+
+    bankroll = 1000
 
     partidos = obtener_partidos_hoy()
 
@@ -23,38 +23,23 @@ def main():
 
     modelo = cargar_modelo()
 
-    probabilidades = []
-
-    for partido, cuota in zip(partidos, cuotas):
-        prob = predecir(
-            modelo,
-            cuota["home_odds"],
-            cuota["away_odds"]
-        )
-        probabilidades.append(prob)
+    probabilidades = predecir(modelo, len(cuotas))
 
     resultados = calcular_ev_y_kelly(probabilidades, [c["home_odds"] for c in cuotas])
 
-    bankroll = 1000
+    for i, r in enumerate(resultados):
+        if r["ev"] > 0:
+            apuesta = calcular_apuesta(bankroll, r["kelly"])
 
-    for partido, res in zip(partidos, resultados):
-
-        if res["ev"] > 0:
-
-            apuesta = calcular_apuesta(bankroll, res["kelly"])
-
-            mensaje = f"""
-🔥 VALUE BET DETECTADO
-
-⚽ {partido['home']} vs {partido['away']}
-📈 EV: {res['ev']}
-🧠 Probabilidad IA: {round(probabilidades[0], 2)}
-💰 Kelly: {res['kelly']}
-💵 Apuesta: ${apuesta}
-"""
+            mensaje = (
+                f"🔥 VALUE BET\n"
+                f"{cuotas[i]['partido']}\n"
+                f"EV: {r['ev']}\n"
+                f"Kelly: {r['kelly']}\n"
+                f"Apuesta: ${apuesta}"
+            )
 
             print(mensaje)
-
             enviar_alerta(mensaje)
 
     print("✅ SISTEMA FINALIZADO")
