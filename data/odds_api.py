@@ -1,22 +1,13 @@
-import requests
 import random
 
 def obtener_cuotas(partidos):
-    resultados = []
+    cuotas = []
 
-    for partido in partidos:
-        try:
-            # SIMULACIÓN ROBUSTA (puedes cambiar por API real luego)
-            cuota_home = round(random.uniform(1.5, 3.0), 2)
-            cuota_away = round(random.uniform(1.5, 3.0), 2)
+    for p in partidos:
+        cuotas.append({
+            "partido": f"{p['home']} vs {p['away']}",
+            "home_odds": round(random.uniform(1.5, 2.8), 2),
+            "away_odds": round(random.uniform(1.8, 3.5), 2)
+        })
 
-            resultados.append({
-                "partido": f"{partido['home']} vs {partido['away']}",
-                "home_odds": cuota_home,
-                "away_odds": cuota_away
-            })
-
-        except Exception as e:
-            print("❌ Error cuotas:", e)
-
-    return resultados
+    return cuotas
