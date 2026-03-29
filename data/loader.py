@@ -1,12 +1,21 @@
+# data/loader.py
+
 import requests
-import pandas as pd
 import os
 
-API_KEY = os.getenv("API_KEY_ODDS")
 
+def obtener_cuotas():
+    """
+    Obtiene cuotas desde Odds API
+    """
 
-def cargar_cuotas():
-    url = "https://api.the-odds-api.com/v4/sports/soccer/odds"
+    API_KEY = os.getenv("API_KEY_ODDS")
+
+if not API_KEY:
+    print("❌ Falta API_KEY_ODDS")
+    return []
+
+    url = "https://api.the-odds-api.com/v4/sports/soccer/odds/"
 
     params = {
         "apiKey": API_KEY,
@@ -14,46 +23,42 @@ def cargar_cuotas():
         "markets": "h2h"
     }
 
-    res = requests.get(url, params=params)
+    try:
+        response = requests.get(url, params=params)
 
-    if res.status_code != 200:
-        print(f"❌ Error Odds API: {res.status_code}")
-        return pd.DataFrame()
+        if response.status_code != 200:
+            print(f"❌ Error API Odds: {response.status_code}")
+            return []
 
-    data = res.json()
+        data = response.json()
 
-    partidos = []
+        partidos = []
 
-    for game in data:
-        try:
-            home = game["home_team"]
-            away = game["away_team"]
+        for match in data:
+            try:
+                if "bookmakers" not in match or len(match["bookmakers"]) == 0:
+                    continue
 
-            book = game["bookmakers"][0]
-            outcomes = book["markets"][0]["outcomes"]
+                bookmaker = match["bookmakers"][0]
+                market = bookmaker["markets"][0]
+                outcomes = market["outcomes"]
 
-            if len(outcomes) == 3:
-                cuota_local = outcomes[0]["price"]
-                cuota_empate = outcomes[1]["price"]
-                cuota_visitante = outcomes[2]["price"]
-            else:
-                cuota_local = outcomes[0]["price"]
-                cuota_empate = 3.0
-                cuota_visitante = outcomes[1]["price"]
+                if len(outcomes) < 2:
+                    continue
 
-            partidos.append({
-                "equipo_local": home,
-                "equipo_visitante": away,
-                "cuota_local": cuota_local,
-                "cuota_empate": cuota_empate,
-                "cuota_visitante": cuota_visitante
-            })
+                cuotas = [o["price"] for o in outcomes]
 
-        except:
-            continue
+                partidos.append({
+                    "home": match["home_team"],
+                    "away": match["away_team"],
+                    "cuotas": cuotas
+                })
 
-    df = pd.DataFrame(partidos)
+            except Exception:
+                continue
 
-    print(f"🌍 Cuotas disponibles: {len(df)}")
+        return partidos
 
-    return df
+    except Exception as e:
+        print(f"❌ Error obteniendo cuotas: {e}")
+        return []
