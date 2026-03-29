@@ -1,10 +1,5 @@
-def calcular_apuesta(bankroll, kelly, riesgo_max=0.05):
-    if kelly <= 0:
-        return 0
+BANKROLL_INICIAL = 1000
 
-    apuesta = bankroll * kelly
-
-    # limitar riesgo máximo
-    max_apuesta = bankroll * riesgo_max
-
-    return round(min(apuesta, max_apuesta), 2)
+def calcular_apuesta(kelly, bankroll):
+    stake = bankroll * kelly
+    return round(max(10, stake), 2)
