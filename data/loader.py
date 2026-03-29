@@ -11,9 +11,9 @@ def obtener_cuotas():
 
     API_KEY = os.getenv("API_KEY_ODDS")
 
-if not API_KEY:
-    print("❌ Falta API_KEY_ODDS")
-    return []
+    if not API_KEY:
+        print("❌ Falta API_KEY_ODDS")
+        return []
 
     url = "https://api.the-odds-api.com/v4/sports/soccer/odds/"
 
