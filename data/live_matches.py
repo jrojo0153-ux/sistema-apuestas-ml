@@ -16,12 +16,10 @@ def obtener_partidos_hoy():
 
         for match in data.get("events", []):
             partidos.append({
-                "id": match.get("id"),
                 "home": match["homeTeam"]["name"],
                 "away": match["awayTeam"]["name"]
             })
 
-        # 🔥 FALLBACK SI NO HAY PARTIDOS
         if not partidos:
             print("⚠️ Usando histórico como fallback")
             return obtener_fallback()
@@ -37,12 +35,17 @@ def obtener_fallback():
     try:
         df = pd.read_csv("data/historico.csv")
 
+        # 🔥 VALIDACIÓN FUERTE
+        if "home" not in df.columns or "away" not in df.columns:
+            print("❌ CSV mal formado. Debe tener columnas: home, away")
+            return []
+
         partidos = []
 
         for _, row in df.tail(10).iterrows():
             partidos.append({
-                "home": row["home_team"],
-                "away": row["away_team"]
+                "home": str(row["home"]),
+                "away": str(row["away"])
             })
 
         return partidos
