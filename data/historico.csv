@@ -1,6 +1,4 @@
-home,away
-Barcelona,Real Madrid
-Liverpool,Manchester United
-Bayern Munich,Dortmund
-PSG,Marseille
-Juventus,Milan
+home_team,away_team,home_odds,away_odds,resultado
+Barcelona,Real Madrid,1.8,2.1,1
+Liverpool,Man United,2.0,1.9,0
+Bayern,Dortmund,1.7,2.3,1
