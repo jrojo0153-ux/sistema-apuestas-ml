@@ -20,16 +20,14 @@ def actualizar_bankroll(resultado):
     return bankroll
 
 
-def calcular_apuesta(kelly):
-    """
-    Calcula el tamaño de la apuesta con gestión de riesgo
-    """
-
-    global bankroll
-
-    # Validaciones
-    if kelly <= MIN_KELLY:
+def calcular_apuesta(bankroll, kelly):
+    if kelly <= 0:
         return 0
+
+    # 🔥 Kelly conservador (50%)
+    stake = bankroll * (kelly * 0.5)
+
+    return round(stake, 2)
 
     # Limitar Kelly (muy importante)
     kelly_ajustado = min(kelly, MAX_KELLY)
