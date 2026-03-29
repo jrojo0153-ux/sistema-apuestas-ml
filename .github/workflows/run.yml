@@ -1,40 +1,31 @@
-name: Bot Apuestas IA
+name: run-bot
 
 on:
   schedule:
-    - cron: "0 */6 * * *"   # cada 6 horas
-  workflow_dispatch:        # permite ejecutarlo manual
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
 
 jobs:
-  run-bot:
+  run:
     runs-on: ubuntu-latest
 
     steps:
-      - name: 📥 Clonar repositorio
+      - name: Clonar repo
         uses: actions/checkout@v3
 
-      - name: 🐍 Configurar Python
+      - name: Configurar Python
         uses: actions/setup-python@v4
         with:
           python-version: "3.10"
 
-      - name: 📦 Instalar dependencias
-        run: |
-          pip install --upgrade pip
-          pip install requests numpy scikit-learn joblib
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
 
-      - name: 🔐 Configurar variables de entorno
+      - name: Variables entorno
+        run: echo "Variables cargadas"
+
+      - name: Ejecutar bot
         env:
-          API_KEY_ODDS: ${{ secrets.API_KEY_ODDS }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: |
-          echo "Variables cargadas"
-
-      - name: 🚀 Ejecutar bot
-        env:
-          API_KEY_ODDS: ${{ secrets.API_KEY_ODDS }}
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: |
-          python main.py
+        run: python main.py
