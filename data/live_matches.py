@@ -1,33 +1,52 @@
 import requests
-from config import API_FOOTBALL_KEY
+import pandas as pd
 
 def obtener_partidos_hoy():
-    url = "https://v3.football.api-sports.io/fixtures?live=all"
-
-    headers = {
-        "x-apisports-key": API_FOOTBALL_KEY
-    }
+    url = "https://api.sofascore.com/api/v1/sport/football/events/live"
 
     try:
-        response = requests.get(url, headers=headers)
+        response = requests.get(url, timeout=10)
 
         if response.status_code != 200:
-            print("❌ Error API partidos:", response.status_code)
-            return []
+            print("⚠️ Error SofaScore, usando histórico")
+            return obtener_fallback()
 
         data = response.json()
+        partidos = []
+
+        for match in data.get("events", []):
+            partidos.append({
+                "id": match.get("id"),
+                "home": match["homeTeam"]["name"],
+                "away": match["awayTeam"]["name"]
+            })
+
+        # 🔥 FALLBACK SI NO HAY PARTIDOS
+        if not partidos:
+            print("⚠️ Usando histórico como fallback")
+            return obtener_fallback()
+
+        return partidos
+
+    except Exception as e:
+        print("⚠️ Error SofaScore:", e)
+        return obtener_fallback()
+
+
+def obtener_fallback():
+    try:
+        df = pd.read_csv("data/historico.csv")
 
         partidos = []
 
-        for match in data.get("response", []):
+        for _, row in df.tail(10).iterrows():
             partidos.append({
-                "id": match["fixture"]["id"],
-                "home": match["teams"]["home"]["name"],
-                "away": match["teams"]["away"]["name"]
+                "home": row["home_team"],
+                "away": row["away_team"]
             })
 
         return partidos
 
     except Exception as e:
-        print("❌ Error obteniendo partidos:", e)
+        print("❌ Error fallback:", e)
         return []
