@@ -1,53 +1,31 @@
-name: 🤖 Run Betting Bot IA PRO
+name: Run Betting Bot IA PRO
 
 on:
-  schedule:
-    - cron: "*/30 * * * *"  # cada 30 minutos
   workflow_dispatch:
+  schedule:
+    - cron: "0 */6 * * *"
 
 jobs:
   run-bot:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Clonar repositorio
+        uses: actions/checkout@v4
 
-    # 📥 Clonar repo
-    - name: 📥 Clonar repositorio
-      uses: actions/checkout@v4
+      - name: Configurar Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
 
-    # 🐍 Configurar Python
-    - name: 🐍 Configurar Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: "3.11"
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
 
-    # 📦 Instalar dependencias
-    - name: 📦 Instalar dependencias
-      run: |
-        pip install --upgrade pip
-        pip install -r requirements.txt
+      - name: Ejecutar bot
+        run: python main.py
 
-    # 📥 Descargar modelo previo (NO ROMPE SI NO EXISTE)
-    - name: 📥 Descargar modelo previo (si existe)
-      continue-on-error: true
-      uses: actions/download-artifact@v4
-      with:
-        name: modelo-ia
-        path: models/
-
-    # 🔐 Variables entorno (opcional Telegram)
-    - name: 🔐 Variables de entorno
-      run: echo "Variables cargadas"
-
-    # 🚀 Ejecutar bot
-    - name: 🚀 Ejecutar bot
-      run: python main.py
-
-    # 💾 Guardar modelo SI EXISTE
-    - name: 💾 Guardar modelo IA
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: modelo-ia
-        path: models/modelo.pkl
-        if-no-files-found: ignore
+      - name: Guardar modelo IA
+        uses: actions/upload-artifact@v4
+        with:
+          name: modelo-ia
+          path: models/modelo.pkl
