@@ -1,51 +1,64 @@
-import os
-
+from data.live_matches import obtener_partidos
+from data.features import crear_features
+from models.model import cargar_modelo, predecir
 from engine.ev_kelly import calcular_ev_y_kelly
+from portfolio.bankroll import calcular_apuesta
+from alerts.telegram import enviar_alerta
 
 def main():
-    print("🚀 SISTEMA LIVE PRO INICIADO")
+    print("🚀 SISTEMA PRO INICIADO")
 
-    try:
-        # ========================
-        # 1. CARGAR API KEY
-        # ========================
-        api_key = os.getenv("API_KEY_ODDS")
+    # 1. Obtener partidos
+    partidos = obtener_partidos()
 
-        if not api_key:
-            print("❌ ERROR: API_KEY_ODDS no encontrada")
-            return
+    if not partidos:
+        print("❌ No hay partidos disponibles")
+        return
 
-        print("✅ API KEY cargada")
+    print(f"📊 Partidos encontrados: {len(partidos)}")
 
-        # ========================
-        # 2. DATOS SIMULADOS (fallback)
-        # ========================
-        probabilidades = [0.6, 0.55, 0.48]
-        cuotas = [2.0, 1.8, 2.5]
+    # 2. Features
+    X = crear_features(partidos)
 
-        print(f"📊 Partidos detectados: {len(probabilidades)}")
+    if len(X) == 0:
+        print("❌ No hay features")
+        return
 
-        # ========================
-        # 3. CALCULAR EV + KELLY
-        # ========================
-        resultados = calcular_ev_y_kelly(probabilidades, cuotas)
+    # 3. Modelo
+    modelo = cargar_modelo()
 
-        if not resultados:
-            print("⚠️ No hay resultados válidos")
-            return
+    probs = predecir(modelo, X)
 
-        # ========================
-        # 4. MOSTRAR RESULTADOS
-        # ========================
-        print("\n📈 RESULTADOS:")
-        for r in resultados:
-            print(f"EV: {r['ev']} | Kelly: {r['kelly']}")
+    # 4. Cuotas
+    cuotas = [p["cuota"] for p in partidos]
 
-        print("\n✅ Sistema ejecutado correctamente")
+    # 5. EV + Kelly
+    resultados = calcular_ev_y_kelly(probs, cuotas)
 
-    except Exception as e:
-        print(f"❌ ERROR CRÍTICO: {e}")
+    if not resultados:
+        print("❌ No hay resultados EV/Kelly")
+        return
 
+    # 6. Decisiones
+    for i, r in enumerate(resultados):
+        ev = r["ev"]
+        kelly = r["kelly"]
+
+        if ev > 0:
+            apuesta = calcular_apuesta(kelly)
+
+            mensaje = f"""
+🔥 VALUE BET
+{partidos[i]['home']} vs {partidos[i]['away']}
+EV: {ev}
+Kelly: {kelly}
+Apuesta: ${apuesta}
+"""
+
+            print(mensaje)
+            enviar_alerta(mensaje)
+
+    print("✅ SISTEMA FINALIZADO")
 
 if __name__ == "__main__":
     main()
