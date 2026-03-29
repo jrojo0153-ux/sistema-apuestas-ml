@@ -1,26 +1,59 @@
-import numpy as np
 import os
 import joblib
+import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 
-MODEL_PATH = "models/model.pkl"
+RUTA_MODELO = "models/modelo.pkl"
+
 
 def entrenar_modelo():
-    X = np.random.rand(20, 3)
-    y = np.random.randint(0, 2, 20)
+    """
+    Entrena modelo con datos históricos simples
+    """
 
-    model = RandomForestClassifier(n_estimators=100)
-    model.fit(X, y)
+    # 🔥 DATASET EJEMPLO (puedes ampliar luego)
+    data = {
+        "cuota": [1.8, 2.1, 1.5, 2.5, 1.9, 2.2, 1.7, 2.8],
+        "prob_estimada": [0.6, 0.55, 0.7, 0.4, 0.58, 0.52, 0.62, 0.35],
+        "resultado": [1, 0, 1, 0, 1, 0, 1, 0]  # 1 = gana, 0 = pierde
+    }
 
-    joblib.dump(model, MODEL_PATH)
-    return model
+    df = pd.DataFrame(data)
+
+    X = df[["cuota", "prob_estimada"]]
+    y = df["resultado"]
+
+    modelo = RandomForestClassifier(n_estimators=100)
+    modelo.fit(X, y)
+
+    guardar_modelo(modelo)
+
+    return modelo
+
+
+def guardar_modelo(modelo):
+    os.makedirs("models", exist_ok=True)
+    joblib.dump(modelo, RUTA_MODELO)
+
 
 def cargar_modelo():
-    if not os.path.exists(MODEL_PATH):
-        print("⚠️ Modelo no encontrado, entrenando...")
-        return entrenar_modelo()
+    if os.path.exists(RUTA_MODELO):
+        return joblib.load(RUTA_MODELO)
+    return None
 
-    return joblib.load(MODEL_PATH)
 
-def predecir(modelo, X):
-    return modelo.predict_proba(X)[:, 1]
+def predecir_probabilidades(modelo, cuotas):
+    """
+    Genera probabilidades reales
+    """
+
+    import numpy as np
+
+    probs = []
+
+    for cuota in cuotas:
+        X = np.array([[cuota, 1 / cuota]])  # feature simple
+        prob = modelo.predict_proba(X)[0][1]
+        probs.append(prob)
+
+    return probs
