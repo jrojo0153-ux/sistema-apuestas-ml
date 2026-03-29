@@ -1,13 +1,26 @@
 from data.live_matches import obtener_partidos_hoy
 from data.loader import obtener_cuotas
-from models.model import (
-    cargar_modelo,
-    entrenar_modelo,
-    predecir_probabilidades
-)
 from engine.ev_kelly import calcular_ev_y_kelly
+from models.model import cargar_modelo, predecir
 from portfolio.bankroll import calcular_apuesta
-from utils.telegram import enviar_alerta
+
+import os
+import requests
+
+
+def enviar_telegram(msg):
+    token = os.getenv("TELEGRAM_BOT_TOKEN")
+    chat_id = os.getenv("TELEGRAM_CHAT_ID")
+
+    if not token or not chat_id:
+        return
+
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+
+    requests.post(url, json={
+        "chat_id": chat_id,
+        "text": msg
+    })
 
 
 def main():
@@ -16,38 +29,36 @@ def main():
     partidos = obtener_partidos_hoy()
     print(f"📊 Partidos encontrados: {len(partidos)}")
 
+    if not partidos:
+        return
+
     cuotas = obtener_cuotas(partidos)
 
     modelo = cargar_modelo()
+    probabilidades = predecir(modelo, len(partidos))
 
-    if modelo is None:
-        print("⚠️ Modelo no encontrado, entrenando...")
-        modelo = entrenar_modelo()
-    else:
-        print("✅ Modelo cargado")
+    cuotas_home = [c["cuota_home"] for c in cuotas]
 
-    probs = predecir_probabilidades(modelo, cuotas)
+    resultados = calcular_ev_y_kelly(probabilidades, cuotas_home)
 
-    resultados = calcular_ev_y_kelly(probs, cuotas)
+    bankroll = 1000
 
-    for i, r in enumerate(resultados):
-        if r["ev"] > 0.05:  # 🔥 FILTRO REAL
+    for partido, res, cuota in zip(partidos, resultados, cuotas_home):
 
-            apuesta = calcular_apuesta(1000, r["kelly"])
+        if res["ev"] > 0:
+            apuesta = calcular_apuesta(bankroll, res["kelly"])
 
-            mensaje = f"""
+            msg = f"""
 🔥 VALUE BET
-
-{partidos[i]["home"]} vs {partidos[i]["away"]}
-
-EV: {r["ev"]}
-Kelly: {r["kelly"]}
+{partido['home']} vs {partido['away']}
+Cuota: {cuota}
+EV: {res['ev']}
+Kelly: {res['kelly']}
 Apuesta: ${apuesta}
 """
 
-            print(mensaje)
-
-            enviar_alerta(mensaje)
+            print(msg)
+            enviar_telegram(msg)
 
     print("✅ SISTEMA FINALIZADO")
 
