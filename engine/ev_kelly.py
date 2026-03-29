@@ -1,51 +1,27 @@
-def calcular_ev(prob: float, cuota: float) -> float:
-    """
-    Calcula valor esperado (EV)
-    """
-    return (prob * cuota) - 1
+import numpy as np
 
+def calcular_ev_y_kelly(probabilidades, cuotas):
+    probabilidades = np.array(probabilidades)
+    cuotas = np.array(cuotas)
 
-def calcular_kelly(prob: float, cuota: float) -> float:
-    """
-    Fórmula de Kelly
-    """
-    if cuota <= 1:
-        return 0
-
-    kelly = ((prob * (cuota - 1)) - (1 - prob)) / (cuota - 1)
-
-    return max(0, kelly)
-
-
-def calcular_ev_y_kelly(probabilidades: list, cuotas: list) -> list:
-    """
-    Calcula EV y Kelly para múltiples eventos
-    """
+    if probabilidades.size == 0 or cuotas.size == 0:
+        return []
 
     resultados = []
 
-    if len(probabilidades) != len(cuotas):
-        print("❌ Error: listas de diferente tamaño")
-        return []
-
-    for prob, cuota in zip(probabilidades, cuotas):
-
-        # Validaciones seguras (evita error numpy)
-        if prob is None or cuota is None:
-            continue
-
-        if prob <= 0 or prob >= 1:
-            continue
-
+    for p, cuota in zip(probabilidades, cuotas):
         if cuota <= 1:
             continue
 
-        ev = calcular_ev(prob, cuota)
-        kelly = calcular_kelly(prob, cuota)
+        b = cuota - 1
+        q = 1 - p
+
+        ev = (p * cuota) - 1
+        kelly = (p * (cuota - 1) - q) / b if b != 0 else 0
 
         resultados.append({
             "ev": round(ev, 4),
-            "kelly": round(kelly, 4)
+            "kelly": max(0, round(kelly, 4))
         })
 
     return resultados
