@@ -1,36 +1,26 @@
-"""
-models/model.py — Modelo base simple
-"""
-
+import numpy as np
+import os
+import joblib
 from sklearn.ensemble import RandomForestClassifier
 
+MODEL_PATH = "models/model.pkl"
 
-class ModeloBase:
-    """
-    Modelo base usando Random Forest
-    """
+def entrenar_modelo():
+    X = np.random.rand(20, 3)
+    y = np.random.randint(0, 2, 20)
 
-    def __init__(self):
-        self.model = RandomForestClassifier(
-            n_estimators=100,
-            max_depth=5,
-            random_state=42
-        )
+    model = RandomForestClassifier(n_estimators=100)
+    model.fit(X, y)
 
-    def fit(self, X, y):
-        """
-        Entrena el modelo
-        """
-        self.model.fit(X, y)
+    joblib.dump(model, MODEL_PATH)
+    return model
 
-    def predict(self, X):
-        """
-        Predicción de clases
-        """
-        return self.model.predict(X)
+def cargar_modelo():
+    if not os.path.exists(MODEL_PATH):
+        print("⚠️ Modelo no encontrado, entrenando...")
+        return entrenar_modelo()
 
-    def predict_proba(self, X):
-        """
-        Probabilidades (clave para apuestas)
-        """
-        return self.model.predict_proba(X)
+    return joblib.load(MODEL_PATH)
+
+def predecir(modelo, X):
+    return modelo.predict_proba(X)[:, 1]
