@@ -8,6 +8,9 @@ def obtener_partidos_hoy():
 
     response = requests.get(url)
 
+print("STATUS:", response.status_code)
+print("RESPUESTA:", response.text[:500])
+
     if response.status_code != 200:
         print("❌ Error obteniendo partidos")
         return []
