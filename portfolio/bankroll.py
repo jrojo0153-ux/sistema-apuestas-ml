@@ -1,49 +1,59 @@
-"""
-portfolio/bankroll.py — Gestión de bankroll
-"""
+bankroll = 1000  # bankroll inicial
 
-class GestorBankroll:
+# límites de seguridad
+MAX_KELLY = 0.25      # nunca apostar más del 25%
+MIN_KELLY = 0.01      # mínimo para considerar apuesta
+MAX_APUESTA = 0.10    # máximo 10% del bankroll por apuesta
+
+
+def obtener_bankroll():
+    return bankroll
+
+
+def actualizar_bankroll(resultado):
     """
-    Controla el dinero y apuestas realizadas
+    resultado: float (ganancia o pérdida)
+    """
+    global bankroll
+    bankroll += resultado
+    bankroll = max(bankroll, 0)  # nunca negativo
+    return bankroll
+
+
+def calcular_apuesta(kelly):
+    """
+    Calcula el tamaño de la apuesta con gestión de riesgo
     """
 
-    def __init__(self, bankroll_inicial=1000):
-        self.bankroll = bankroll_inicial
-        self.historial = []
-        self.apuestas = 0
+    global bankroll
 
-    def calcular_apuesta(self, señal):
-        """
-        Calcula cuánto apostar basado en Kelly
-        """
-        kelly = señal.get("kelly", 0)
+    # Validaciones
+    if kelly <= MIN_KELLY:
+        return 0
 
-        # usamos fracción de Kelly (más conservador)
-        apuesta = self.bankroll * (kelly * 0.25)
+    # Limitar Kelly (muy importante)
+    kelly_ajustado = min(kelly, MAX_KELLY)
 
-        # mínimo
-        if apuesta < 1:
-            apuesta = 1
+    # Calcular apuesta base
+    apuesta = bankroll * kelly_ajustado
 
-        return apuesta
+    # Limitar por porcentaje máximo
+    apuesta_max = bankroll * MAX_APUESTA
+    apuesta_final = min(apuesta, apuesta_max)
 
-    def registrar_apuesta(self, señal):
-        """
-        Registra una apuesta (simulada)
-        """
-        apuesta = self.calcular_apuesta(señal)
+    return round(apuesta_final, 2)
 
-        # simulación simple (no sabemos resultado aquí)
-        self.bankroll -= apuesta
 
-        self.historial.append(self.bankroll)
-        self.apuestas += 1
+def registrar_resultado(apuesta, cuota, gano):
+    """
+    Actualiza bankroll según resultado real
+    """
+    if apuesta <= 0:
+        return bankroll
 
-    def resumen(self):
-        """
-        Resumen del estado del bankroll
-        """
-        return {
-            "bankroll_actual": self.bankroll,
-            "apuestas_realizadas": self.apuestas
-        }
+    if gano:
+        ganancia = apuesta * (cuota - 1)
+    else:
+        ganancia = -apuesta
+
+    return actualizar_bankroll(ganancia)
