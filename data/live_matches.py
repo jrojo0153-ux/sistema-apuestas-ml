@@ -1,26 +1,25 @@
 import requests
+import os
 
+API_KEY = os.getenv("API_KEY_ODDS")
 
 def obtener_partidos_hoy():
-    """
-    Obtiene partidos del día (mock o API real)
-    """
+    url = f"https://api.the-odds-api.com/v4/sports/soccer/odds/?apiKey={API_KEY}&regions=eu&markets=h2h"
 
-    try:
-        # 🔥 EJEMPLO SIMPLE (puedes conectar API luego)
-        partidos = [
-            {"home": "Eibar", "away": "Las Palmas"},
-            {"home": "Werder Bremen", "away": "SGS Essen"},
-            {"home": "Wolfsburg", "away": "Union Berlin"},
-            {"home": "Cultural Leonesa", "away": "Andorra CF"},
-            {"home": "Zaragoza", "away": "Racing Santander"},
-            {"home": "Freiburg", "away": "Hoffenheim"},
-            {"home": "Almería", "away": "Real Sociedad B"},
-            {"home": "Athletico PR", "away": "Botafogo"}
-        ]
+    response = requests.get(url)
 
-        return partidos
-
-    except Exception as e:
-        print("❌ Error obteniendo partidos:", e)
+    if response.status_code != 200:
+        print("❌ Error obteniendo partidos")
         return []
+
+    data = response.json()
+
+    partidos = []
+
+    for match in data:
+        partidos.append({
+            "home": match["home_team"],
+            "away": match["away_team"]
+        })
+
+    return partidos
