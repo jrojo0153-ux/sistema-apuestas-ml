@@ -1,13 +1,7 @@
 import numpy as np
 
-
-class EnsemblePredictor:
-
-    def predict_proba(self, X):
-
-        if X is None or X.empty:
-            print("❌ Features vacías")
-            return np.array([])
+def ensemble(preds):
+    return np.mean(preds, axis=0)
 
         try:
             prob_local = X["prob_impl_local"].values
