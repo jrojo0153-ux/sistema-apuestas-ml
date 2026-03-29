@@ -2,7 +2,7 @@ import pandas as pd
 
 from data.live_matches import obtener_partidos_hoy
 from data.odds_api import obtener_cuotas
-from features.features import crear_features
+from data.features import crear_features
 from models.ensemble import EnsemblePredictor
 from utils.kelly import calcular_kelly
 
