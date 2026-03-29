@@ -1,27 +1,12 @@
-import numpy as np
+def calcular_ev(probabilidad, cuota):
+    return (probabilidad * cuota) - 1
 
-def calcular_ev_y_kelly(probabilidades, cuotas):
-    probabilidades = np.array(probabilidades)
-    cuotas = np.array(cuotas)
 
-    if probabilidades.size == 0 or cuotas.size == 0:
-        return []
+def calcular_kelly(probabilidad, cuota):
+    b = cuota - 1
+    p = probabilidad
+    q = 1 - p
 
-    resultados = []
+    kelly = (b * p - q) / b
 
-    for p, cuota in zip(probabilidades, cuotas):
-        if cuota <= 1:
-            continue
-
-        b = cuota - 1
-        q = 1 - p
-
-        ev = (p * cuota) - 1
-        kelly = (p * (cuota - 1) - q) / b if b != 0 else 0
-
-        resultados.append({
-            "ev": round(ev, 4),
-            "kelly": max(0, round(kelly, 4))
-        })
-
-    return resultados
+    return max(0, kelly)
