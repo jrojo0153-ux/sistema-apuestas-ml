@@ -1,8 +1,7 @@
-from ml.model import get_winrate
+from engine.ev_kelly import calcular_ev, calcular_kelly
 
-def calculate_edge(odds):
-    prob_model = get_winrate()  # 🔥 aprendizaje real
-    implied = 1 / odds
+def evaluar_apuesta(prob, cuota):
+    ev = calcular_ev(prob, cuota)
+    kelly = calcular_kelly(prob, cuota)
 
-    edge = prob_model - implied
-    return edge
+    return ev, kelly
