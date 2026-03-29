@@ -1,57 +1,76 @@
-bankroll = 1000  # bankroll inicial
+import math
 
-# límites de seguridad
-MAX_KELLY = 0.25      # nunca apostar más del 25%
-MIN_KELLY = 0.01      # mínimo para considerar apuesta
-MAX_APUESTA = 0.10    # máximo 10% del bankroll por apuesta
+class BankrollManager:
+    def __init__(self, bankroll_inicial=1000, riesgo_max=0.05):
+        """
+        bankroll_inicial: dinero total inicial
+        riesgo_max: % máximo por apuesta (protección)
+        """
+        self.bankroll = bankroll_inicial
+        self.bankroll_inicial = bankroll_inicial
+        self.riesgo_max = riesgo_max
+        self.historial = []
 
+    def calcular_apuesta(self, kelly):
+        """
+        Calcula apuesta usando Kelly fraccionado + límite de riesgo
+        """
 
-def obtener_bankroll():
-    return bankroll
+        if kelly <= 0:
+            return 0
 
+        # Kelly conservador (25%)
+        kelly_ajustado = kelly * 0.25
 
-def actualizar_bankroll(resultado):
-    """
-    resultado: float (ganancia o pérdida)
-    """
-    global bankroll
-    bankroll += resultado
-    bankroll = max(bankroll, 0)  # nunca negativo
-    return bankroll
+        # apuesta base
+        apuesta = self.bankroll * kelly_ajustado
 
+        # límite máximo por riesgo
+        max_apuesta = self.bankroll * self.riesgo_max
 
-def calcular_apuesta(bankroll, kelly):
-    if kelly <= 0:
-        return 0
+        apuesta_final = min(apuesta, max_apuesta)
 
-    # 🔥 Kelly conservador (50%)
-    stake = bankroll * (kelly * 0.5)
+        return round(apuesta_final, 2)
 
-    return round(stake, 2)
+    def actualizar_bankroll(self, apuesta, cuota, gano):
+        """
+        Actualiza bankroll después de cada apuesta
+        """
 
-    # Limitar Kelly (muy importante)
-    kelly_ajustado = min(kelly, MAX_KELLY)
+        if apuesta <= 0:
+            return self.bankroll
 
-    # Calcular apuesta base
-    apuesta = bankroll * kelly_ajustado
+        if gano:
+            ganancia = apuesta * (cuota - 1)
+            self.bankroll += ganancia
+        else:
+            self.bankroll -= apuesta
 
-    # Limitar por porcentaje máximo
-    apuesta_max = bankroll * MAX_APUESTA
-    apuesta_final = min(apuesta, apuesta_max)
+        self.historial.append(self.bankroll)
 
-    return round(apuesta_final, 2)
+        return round(self.bankroll, 2)
 
+    def get_drawdown(self):
+        """
+        Calcula drawdown máximo
+        """
+        peak = self.bankroll_inicial
+        max_dd = 0
 
-def registrar_resultado(apuesta, cuota, gano):
-    """
-    Actualiza bankroll según resultado real
-    """
-    if apuesta <= 0:
-        return bankroll
+        for valor in self.historial:
+            if valor > peak:
+                peak = valor
 
-    if gano:
-        ganancia = apuesta * (cuota - 1)
-    else:
-        ganancia = -apuesta
+            dd = (peak - valor) / peak
 
-    return actualizar_bankroll(ganancia)
+            if dd > max_dd:
+                max_dd = dd
+
+        return round(max_dd, 4)
+
+    def resumen(self):
+        return {
+            "bankroll_actual": round(self.bankroll, 2),
+            "ganancia_total": round(self.bankroll - self.bankroll_inicial, 2),
+            "drawdown": self.get_drawdown()
+        }
