@@ -1,68 +1,104 @@
-"""
-engine/ev_kelly.py — Cálculo de valor esperado + criterio de Kelly
-"""
+# engine/ev_kelly.py
 
 import numpy as np
 
 
-class MotorEV:
+def calcular_ev(prob, cuota):
     """
-    Genera señales de apuestas basadas en valor esperado (EV)
+    Calcula el Valor Esperado (EV)
+    EV = (probabilidad * cuota) - 1
     """
+    try:
+        if prob is None or cuota is None:
+            return 0
 
-    def __init__(self, ev_min=0.02):
-        self.ev_min = ev_min
+        prob = float(prob)
+        cuota = float(cuota)
 
-    def calcular_ev(self, prob, cuota):
-        """
-        EV = (probabilidad * cuota) - 1
-        """
+        if prob <= 0 or cuota <= 0:
+            return 0
+
         return (prob * cuota) - 1
 
-    def kelly(self, prob, cuota):
-        """
-        Fórmula de Kelly
-        """
-        b = cuota - 1
-        q = 1 - prob
+    except Exception:
+        return 0
 
-        k = (b * prob - q) / b
 
-        return max(k, 0)  # nunca negativo
+def calcular_kelly(prob, cuota):
+    """
+    Fórmula de Kelly:
+    kelly = ((prob * cuota) - 1) / (cuota - 1)
+    """
+    try:
+        if prob is None or cuota is None:
+            return 0
 
-    def generar_senales(self, df, probs):
-        """
-        Genera lista de apuestas recomendadas
-        """
-        señales = []
+        prob = float(prob)
+        cuota = float(cuota)
 
-        for i in range(len(df)):
-            cuotas = [
-                df.iloc[i]["cuota_local"],
-                df.iloc[i]["cuota_empate"],
-                df.iloc[i]["cuota_visitante"]
-            ]
+        if prob <= 0 or cuota <= 1:
+            return 0
 
-            for j in range(3):  # 0=local, 1=empate, 2=visitante
-                prob = probs[i][j]
-                cuota = cuotas[j]
+        kelly = ((prob * cuota) - 1) / (cuota - 1)
 
-                ev = self.calcular_ev(prob, cuota)
+        # Limitar valores extremos
+        if kelly < 0:
+            return 0
+        if kelly > 1:
+            return 1
 
-                if ev > self.ev_min:
-                    k = self.kelly(prob, cuota)
+        return kelly
 
-                    señal = {
-                        "index": i,
-                        "tipo": j,
-                        "prob": prob,
-                        "cuota": cuota,
-                        "ev": ev,
-                        "kelly": k
-                    }
+    except Exception:
+        return 0
 
-                    señales.append(señal)
 
-        print(f"📊 Señales generadas: {len(señales)}")
+def evaluar_partido(probs, cuotas):
+    """
+    Evalúa un partido completo
 
-        return señales
+    probs = [prob_local, prob_empate, prob_visitante]
+    cuotas = [cuota_local, cuota_empate, cuota_visitante]
+    """
+
+    try:
+        # VALIDACIÓN FUERTE
+        if probs is None or cuotas is None:
+            return None
+
+        if len(probs) != 3 or len(cuotas) != 3:
+            return None
+
+        resultados = []
+
+        etiquetas = ["local", "empate", "visitante"]
+
+        for i in range(3):
+            prob = probs[i]
+            cuota = cuotas[i]
+
+            ev = calcular_ev(prob, cuota)
+            kelly = calcular_kelly(prob, cuota)
+
+            resultados.append({
+                "tipo": etiquetas[i],
+                "probabilidad": round(prob, 4),
+                "cuota": cuota,
+                "ev": round(ev, 4),
+                "kelly": round(kelly, 4)
+            })
+
+        # Filtrar solo apuestas con valor positivo
+        apuestas_valor = [r for r in resultados if r["ev"] > 0]
+
+        if len(apuestas_valor) == 0:
+            return None
+
+        # Ordenar por EV
+        mejor = sorted(apuestas_valor, key=lambda x: x["ev"], reverse=True)[0]
+
+        return mejor
+
+    except Exception as e:
+        print(f"❌ Error en EV/Kelly: {e}")
+        return None
