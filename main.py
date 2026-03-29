@@ -1,64 +1,56 @@
-from data.live_matches import obtener_partidos
-from data.features import crear_features
-from models.model import cargar_modelo, predecir
+from data.live_matches import obtener_partidos_hoy
+from data.loader import obtener_cuotas
+from models.model import (
+    cargar_modelo,
+    entrenar_modelo,
+    predecir_probabilidades
+)
 from engine.ev_kelly import calcular_ev_y_kelly
 from portfolio.bankroll import calcular_apuesta
-from alerts.telegram import enviar_alerta
+from utils.telegram import enviar_alerta
+
 
 def main():
     print("🚀 SISTEMA PRO INICIADO")
 
-    # 1. Obtener partidos
-    partidos = obtener_partidos()
-
-    if not partidos:
-        print("❌ No hay partidos disponibles")
-        return
-
+    partidos = obtener_partidos_hoy()
     print(f"📊 Partidos encontrados: {len(partidos)}")
 
-    # 2. Features
-    X = crear_features(partidos)
+    cuotas = obtener_cuotas(partidos)
 
-    if len(X) == 0:
-        print("❌ No hay features")
-        return
-
-    # 3. Modelo
     modelo = cargar_modelo()
 
-    probs = predecir(modelo, X)
+    if modelo is None:
+        print("⚠️ Modelo no encontrado, entrenando...")
+        modelo = entrenar_modelo()
+    else:
+        print("✅ Modelo cargado")
 
-    # 4. Cuotas
-    cuotas = [p["cuota"] for p in partidos]
+    probs = predecir_probabilidades(modelo, cuotas)
 
-    # 5. EV + Kelly
     resultados = calcular_ev_y_kelly(probs, cuotas)
 
-    if not resultados:
-        print("❌ No hay resultados EV/Kelly")
-        return
-
-    # 6. Decisiones
     for i, r in enumerate(resultados):
-        ev = r["ev"]
-        kelly = r["kelly"]
+        if r["ev"] > 0.05:  # 🔥 FILTRO REAL
 
-        if ev > 0:
-            apuesta = calcular_apuesta(kelly)
+            apuesta = calcular_apuesta(1000, r["kelly"])
 
             mensaje = f"""
 🔥 VALUE BET
-{partidos[i]['home']} vs {partidos[i]['away']}
-EV: {ev}
-Kelly: {kelly}
+
+{partidos[i]["home"]} vs {partidos[i]["away"]}
+
+EV: {r["ev"]}
+Kelly: {r["kelly"]}
 Apuesta: ${apuesta}
 """
 
             print(mensaje)
+
             enviar_alerta(mensaje)
 
     print("✅ SISTEMA FINALIZADO")
+
 
 if __name__ == "__main__":
     main()
