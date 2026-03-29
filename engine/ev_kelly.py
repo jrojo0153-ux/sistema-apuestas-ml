@@ -3,21 +3,14 @@ import numpy as np
 def calcular_ev_y_kelly(probabilidades, cuotas):
     resultados = []
 
-    if len(probabilidades) == 0 or len(cuotas) == 0:
-        return []
-
     for prob, cuota in zip(probabilidades, cuotas):
 
-        p = float(prob)
-        q = 1 - p
-        b = float(cuota) - 1
+        if prob <= 0 or cuota <= 1:
+            continue
 
-        ev = (p * cuota) - 1
+        ev = (prob * cuota) - 1
 
-        if b == 0:
-            kelly = 0
-        else:
-            kelly = (b * p - q) / b
+        kelly = ((prob * (cuota - 1)) - (1 - prob)) / (cuota - 1)
 
         kelly = max(0, kelly)
 
