@@ -1,12 +1,16 @@
-import pandas as pd
+import numpy as np
 
 def crear_features(partidos):
-    """
-    Genera features simples para partidos en vivo
-    """
+    features = []
 
-    if not partidos:
-        return pd.DataFrame()
+    for p in partidos:
+        features.append([
+            len(p["home"]),
+            len(p["away"]),
+            1 if "FC" in p["home"] else 0
+        ])
+
+    return np.array(features)
 
     df = pd.DataFrame(partidos)
 
