@@ -1,6 +1,5 @@
 from data.api_football import get_matches
 from data.odds_api import get_odds
-from core.value import calculate_edge
 from core.parlay_builder import build_parlays
 from utils.telegram import send_telegram_message
 
@@ -15,49 +14,62 @@ def run_pipeline():
 
     picks = []
 
-    # 🔥 GENERAR PICKS SIEMPRE (aunque no haya edge real)
-    for i, match in enumerate(matches[:10]):
+    # ✅ 1. INTENTAR CON API FOOTBALL
+    for match in matches[:10]:
         try:
             home = match["teams"]["home"]["name"]
             away = match["teams"]["away"]["name"]
 
-            # fallback odds si no hay datos
-            odd = 2.0
-            prob = 0.5
-
-            edge = calculate_edge(prob, odd)
-
             picks.append({
                 "match": f"{home} vs {away}",
                 "pick": home,
-                "odds": odd,
-                "edge": edge
+                "odds": 2.0
             })
+        except:
+            continue
 
-        except Exception as e:
-            print("Error match:", e)
+    # ✅ 2. SI NO HAY → USAR ODDS API (FIX REAL)
+    if not picks:
+        print("⚠️ Usando Odds API...")
 
-    # 🔥 SI NO HAY MATCHES → USAR ODDS DIRECTO
-    if not picks and odds_data:
-        for game in odds_data[:10]:
+        for game in odds_data:
             try:
-                teams = game["teams"]
-                home = teams[0]
-                away = teams[1]
+                home = game["home_team"]
+                away = game["away_team"]
+
+                # 🔥 obtener cuota real
+                bookmakers = game.get("bookmakers", [])
+
+                if bookmakers:
+                    markets = bookmakers[0].get("markets", [])
+                    if markets:
+                        outcomes = markets[0].get("outcomes", [])
+
+                        if outcomes:
+                            odd = outcomes[0]["price"]
+                        else:
+                            odd = 2.0
+                    else:
+                        odd = 2.0
+                else:
+                    odd = 2.0
 
                 picks.append({
                     "match": f"{home} vs {away}",
                     "pick": home,
-                    "odds": 2.0,
-                    "edge": 0.01
+                    "odds": odd
                 })
-            except:
+
+            except Exception as e:
+                print("Error odds:", e)
                 continue
 
+    # ❌ SI AÚN NO HAY PICKS
     if not picks:
         print("❌ No picks generados")
         return
 
+    # 🔥 SIEMPRE GENERAR PARLAYS
     parlays = build_parlays(picks)
 
     message = "🔥 PARLAYS DEL DÍA\n\n"
@@ -65,8 +77,8 @@ def run_pipeline():
     for p in parlays:
         message += f"{p['type']}:\n"
         for leg in p["legs"]:
-            message += f"• {leg['match']} → {leg['pick']}\n"
-        message += f"Cuota total: {p['odds']}\n\n"
+            message += f"• {leg['match']} → {leg['pick']} (cuota {leg['odds']})\n"
+        message += f"💰 Total: {p['odds']}\n\n"
 
     print(message)
     send_telegram_message(message)
