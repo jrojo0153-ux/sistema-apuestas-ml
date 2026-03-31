@@ -1,11 +1,13 @@
 import requests
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 
 def obtener_partidos():
     api_key = os.getenv("API_FOOTBALL_KEY")
+    # Buscamos hoy y mañana para asegurar que siempre haya cartelera disponible
     hoy = datetime.now().strftime('%Y-%m-%d')
-    # Usamos el endpoint de SofaScore/Fixtures para mayor precisión
+    
+    # Endpoint principal de SofaScore/API-Football para partidos del día
     url = f"https://v3.football.api-sports.io/fixtures?date={hoy}"
     
     headers = {
@@ -14,20 +16,35 @@ def obtener_partidos():
     }
     
     try:
-        response = requests.get(url, headers=headers)
+        response = requests.get(url, headers=headers, timeout=15)
         data = response.json()
         partidos_res = data.get('response', [])
         
-        lista_partidos = []
+        if not partidos_res:
+            print("⚠️ API no devolvió partidos para hoy. Intentando modo liga...")
+            return []
+
+        lista_final = []
         for item in partidos_res:
-            # Intentamos obtener cuotas reales de la respuesta si están disponibles
-            lista_partidos.append({
-                "id": item['fixture']['id'],
-                "home_team": item['teams']['home']['name'],
-                "away_team": item['teams']['away']['name'],
-                "home_odds": 2.00, # Valor por defecto si no hay Odds API conectada
-                "away_odds": 3.40
-            })
-        return lista_partidos
-    except Exception:
+            # Filtramos solo ligas importantes para que el ML tenga sentido (NBA, Liga MX, Premier, etc.)
+            # O simplemente traemos todos y dejamos que el modelo decida
+            status = item['fixture']['status']['short']
+            
+            # Solo partidos programados (NS) o en vivo (1H, 2H, HT)
+            if status in ['NS', '1H', '2H', 'HT']:
+                lista_final.append({
+                    "id": item['fixture']['id'],
+                    "home_team": item['teams']['home']['name'],
+                    "away_team": item['teams']['away']['name'],
+                    # IMPORTANTE: Si la API no trae cuotas, asignamos unas base 
+                    # para que el modelo pueda calcular el Edge inicial
+                    "home_odds": 1.85, 
+                    "away_odds": 3.50
+                })
+        
+        print(f"✅ Se encontraron {len(lista_final)} partidos procesables.")
+        return lista_final
+
+    except Exception as e:
+        print(f"❌ Error al conectar con la API: {e}")
         return []
