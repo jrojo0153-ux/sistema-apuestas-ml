@@ -2,9 +2,9 @@ import requests
 import os
 
 def obtener_partidos():
-    # GitHub Actions inyecta automáticamente el Secret aquí
     api_key = os.getenv("API_FOOTBALL_KEY")
-    url = "https://v3.football.api-sports.io/fixtures?live=all" # O por fecha
+    # Endpoint para partidos del día (puedes filtrar por liga con &league=XXX)
+    url = "https://v3.football.api-sports.io/fixtures?live=all"
     
     headers = {
         'x-rapidapi-key': api_key,
@@ -14,20 +14,17 @@ def obtener_partidos():
     try:
         response = requests.get(url, headers=headers)
         data = response.json()
-        
         partidos_procesados = []
-        for item in data['response']:
-            # Mantenemos los nombres de llaves que espera tu main.py
-            partido = {
+        
+        for item in data.get('response', []):
+            partidos_procesados.append({
                 "home_team": item['teams']['home']['name'],
                 "away_team": item['teams']['away']['name'],
-                # Aquí podrías integrar otra API de cuotas o usar valores base
-                "home_odds": 1.85, # Valor temporal si la API de fútbol no trae odds
+                # Si tu plan no incluye odds, usamos valores base para no romper el flujo
+                "home_odds": 1.90, 
                 "away_odds": 2.10
-            }
-            partidos_procesados.append(partido)
-            
+            })
         return partidos_procesados
     except Exception as e:
-        print(f"❌ Error API: {e}")
+        print(f"❌ Error al conectar con API Football: {e}")
         return []
