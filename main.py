@@ -7,58 +7,86 @@ from portfolio.bankroll import calcular_apuesta
 from config import *
 
 def enviar_telegram(mensaje):
+    """
+    Envía notificaciones a Telegram gestionando errores de conexión
+    para cumplir con las normas de seguridad.
+    """
     token = os.getenv("TELEGRAM_BOT_TOKEN")
     chat_id = os.getenv("TELEGRAM_CHAT_ID")
+    
     if not token or not chat_id:
+        print("⚠️ Configuración de Telegram incompleta (Secrets).")
         return
 
     url = f"https://api.telegram.org/bot{token}/sendMessage"
-    payload = {"chat_id": chat_id, "text": mensaje, "parse_mode": "Markdown"}
+    payload = {
+        "chat_id": chat_id, 
+        "text": mensaje, 
+        "parse_mode": "Markdown"
+    }
+    
     try:
         response = requests.post(url, json=payload, timeout=10)
         response.raise_for_status()
     except requests.exceptions.RequestException as e:
-        print(f"❌ Error de conexión con Telegram: {e}")
+        # Registro del error en lugar de ignorarlo (evita avisos de Bandit/CodeFactor)
+        print(f"❌ Fallo al enviar Telegram: {e}")
 
 def main():
-    print("🚀 SISTEMA PRO IA INICIADO")
+    print("🚀 SISTEMA EDGE PRO ACTIVADO")
     
-    # Carga segura del modelo
+    # 1. Gestión del Modelo: Cargar existente o crear uno nuevo si no existe la carpeta
     modelo = cargar_modelo()
     if modelo is None:
-        print("⚠️ Modelo no detectado. Intentando entrenar...")
+        print("⚠️ Modelo no detectado o corrupto. Iniciando entrenamiento...")
         modelo = entrenar_modelo()
 
     if modelo is None:
-        print("❌ Error crítico: No se pudo inicializar la IA.")
+        print("❌ Error crítico: El sistema no pudo inicializar el modelo de IA.")
         return
 
+    # 2. Obtención de datos de SofaScore
     partidos = obtener_partidos()
     if not partidos:
-        print("❌ No hay partidos hoy.")
+        print("❌ No se encontraron partidos procesables para hoy.")
+        # Opcional: enviar_telegram("⚠️ No hay partidos disponibles en SofaScore hoy.")
         return
 
-    enviar_telegram(f"🤖 *IA Activa:* Analizando {len(partidos)} partidos...")
+    enviar_telegram(f"📡 *SofaScore:* Analizando {len(partidos)} eventos en busca de Edge...")
 
+    apuestas_encontradas = 0
     for partido in partidos:
+        # 3. Predicción de la IA
         prob = predecir(modelo, partido)
+        
         if prob:
             odds = partido.get('home_odds', 0)
-            if odds <= 1: continue
+            if odds <= 1:
+                continue
+                
+            # 4. Cálculo del Edge (Ventaja sobre la casa)
+            prob_casa = 1 / odds
+            edge = prob - prob_casa
             
-            edge = prob - (1/odds)
+            # 5. Filtro de Alto Valor (Configurado en config.py)
             if edge > EDGE_MINIMO:
                 ev, kelly = evaluar_apuesta(prob, odds)
+                
                 if kelly > 0:
+                    apuestas_encontradas += 1
+                    # Gestión de Bankroll
                     stake = calcular_apuesta(kelly * KELLY_FRACCION, BANKROLL_INICIAL)
-                    msg = (f"🎯 *VALUE BET*\n"
+                    
+                    msg = (f"💎 *ALERTA DE ALTO VALOR*\n"
                            f"⚽ {partido['home_team']} vs {partido['away_team']}\n"
-                           f"📈 Edge: {round(edge*100, 2)}%\n"
-                           f"💰 Cuota: {odds}\n"
-                           f"📊 Stake: ${round(stake, 2)}")
+                           f"📈 *Edge:* {round(edge*100, 2)}%\n"
+                           f"📈 *Prob. IA:* {round(prob*100, 1)}%\n"
+                           f"💰 *Cuota:* {odds}\n"
+                           f"📊 *Stake Sugerido:* ${round(stake, 2)}")
+                    
                     enviar_telegram(msg)
 
-    print("✅ Proceso finalizado.")
+    print(f"✅ Ciclo completado. Apuestas enviadas: {apuestas_encontradas}")
 
 if __name__ == "__main__":
     main()
