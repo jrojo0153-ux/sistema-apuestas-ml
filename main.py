@@ -9,20 +9,24 @@ from config import *
 def enviar_telegram(mensaje):
     token = os.getenv("TELEGRAM_BOT_TOKEN")
     chat_id = os.getenv("TELEGRAM_CHAT_ID")
-    if token and chat_id:
-        url = f"https://api.telegram.org/bot{token}/sendMessage"
-        try:
-            requests.post(url, json={"chat_id": chat_id, "text": mensaje, "parse_mode": "Markdown"})
-        except Exception:
-            pass
+    if not token or not chat_id:
+        return
+
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    payload = {"chat_id": chat_id, "text": mensaje, "parse_mode": "Markdown"}
+    try:
+        response = requests.post(url, json=payload, timeout=10)
+        response.raise_for_status()
+    except requests.exceptions.RequestException as e:
+        print(f"❌ Error de conexión con Telegram: {e}")
 
 def main():
     print("🚀 SISTEMA PRO IA INICIADO")
     
-    # Flujo lógico: Cargar -> Si falla, Entrenar (Crea carpeta y archivo)
+    # Carga segura del modelo
     modelo = cargar_modelo()
     if modelo is None:
-        print("⚠️ Modelo no detectado. Generando estructura...")
+        print("⚠️ Modelo no detectado. Intentando entrenar...")
         modelo = entrenar_modelo()
 
     if modelo is None:
@@ -39,9 +43,10 @@ def main():
     for partido in partidos:
         prob = predecir(modelo, partido)
         if prob:
-            odds = partido['home_odds']
-            edge = prob - (1/odds)
+            odds = partido.get('home_odds', 0)
+            if odds <= 1: continue
             
+            edge = prob - (1/odds)
             if edge > EDGE_MINIMO:
                 ev, kelly = evaluar_apuesta(prob, odds)
                 if kelly > 0:
