@@ -4,18 +4,22 @@ import joblib
 import os
 
 def entrenar_modelo():
-    if not os.path.exists('Historico.csv'):
-        print("❌ Error: Historico.csv no encontrado")
+    # Buscamos el archivo dentro de la carpeta data
+    ruta_csv = 'data/Historico.csv'
+    
+    if not os.path.exists(ruta_csv):
+        print(f"❌ Error: {ruta_csv} no encontrado")
         return None
         
-    df = pd.read_csv('Historico.csv')
-    # Diferencia de cuotas como factor de decisión
+    df = pd.read_csv(ruta_csv)
+    
+    # Ingeniería de datos
     df['diff'] = df['home_odds'] - df['away_odds']
     
     X = df[['home_odds', 'away_odds', 'diff']]
     y = df['resultado']
     
-    # Random Forest para superar el 0.5 de accuracy
+    # Entrenamiento con RandomForest
     modelo = RandomForestClassifier(n_estimators=100, random_state=42)
     modelo.fit(X, y)
     
@@ -37,7 +41,6 @@ def predecir(modelo, partido):
         h = partido.get("home_odds")
         a = partido.get("away_odds")
         diff = h - a
-        # Probabilidad de victoria local
         prob = modelo.predict_proba([[h, a, diff]])[0][1]
         return prob
     except:
