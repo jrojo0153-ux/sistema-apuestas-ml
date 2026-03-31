@@ -16,14 +16,11 @@ def obtener_partidos():
         response = requests.get(url, headers=headers)
         data = response.json()
         partidos_res = data.get('response', [])
-        
-        if not partidos_res:
-            return []
-            
         return [{
             "home_team": item['teams']['home']['name'],
             "away_team": item['teams']['away']['name'],
             "home_odds": 1.95, 
             "away_odds": 2.05
         } for item in partidos_res]
-    except return []
+    except Exception:
+        return []
