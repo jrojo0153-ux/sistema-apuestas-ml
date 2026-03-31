@@ -1,60 +1,43 @@
+import pandas as pd
+from sklearn.ensemble import RandomForestClassifier
+import joblib
 import os
-import requests
-from data.live_matches import obtener_partidos
-from ml.model import entrenar_modelo, cargar_modelo, predecir
-from core.value import evaluar_apuesta
-from portfolio.bankroll import calcular_apuesta
-from config import *
 
-def enviar_telegram(mensaje):
-    token = os.getenv("TELEGRAM_BOT_TOKEN")
-    chat_id = os.getenv("TELEGRAM_CHAT_ID")
-    if token and chat_id:
-        url = f"https://api.telegram.org/bot{token}/sendMessage"
-        try:
-            requests.post(url, json={"chat_id": chat_id, "text": mensaje, "parse_mode": "Markdown"})
-        except:
-            pass
-
-def main():
-    print("🚀 SISTEMA PRO IA INICIADO")
+def entrenar_modelo():
+    ruta_csv = 'data/Historico.csv'
+    if not os.path.exists(ruta_csv):
+        print("❌ Error: data/Historico.csv no encontrado")
+        return None
+        
+    df = pd.read_csv(ruta_csv)
+    df['diff'] = df['home_odds'] - df['away_odds']
     
-    # Intentar cargar, si falla (o no existe la carpeta), entrena y la crea
-    modelo = cargar_modelo()
-    if modelo is None:
-        print("⚠️ Iniciando entrenamiento y creación de archivos...")
-        modelo = entrenar_modelo()
+    X = df[['home_odds', 'away_odds', 'diff']]
+    y = df['resultado']
+    
+    modelo = RandomForestClassifier(n_estimators=100, random_state=42)
+    modelo.fit(X, y)
+    
+    # Crear carpeta si no existe antes de guardar
+    if not os.path.exists('models'):
+        os.makedirs('models')
+    
+    joblib.dump(modelo, 'models/modelo.pkl')
+    print(f"✅ Modelo guardado. Accuracy: {modelo.score(X, y)}")
+    return modelo
 
-    if modelo is None:
-        print("❌ Error crítico: No se pudo establecer el modelo de IA.")
-        return
+def cargar_modelo():
+    ruta = 'models/modelo.pkl'
+    if os.path.exists(ruta):
+        try:
+            return joblib.load(ruta)
+        except Exception:
+            return None
+    return None
 
-    partidos = obtener_partidos()
-    if not partidos:
-        print("❌ No se encontraron partidos hoy.")
-        return
-
-    enviar_telegram(f"🤖 *IA en línea:* Analizando {len(partidos)} partidos del día...")
-
-    for partido in partidos:
-        prob = predecir(modelo, partido)
-        if prob:
-            odds = partido['home_odds']
-            edge = prob - (1/odds)
-            
-            # Solo enviar si hay ventaja real
-            if edge > EDGE_MINIMO:
-                ev, kelly = evaluar_apuesta(prob, odds)
-                if kelly > 0:
-                    stake = calcular_apuesta(kelly * KELLY_FRACCION, BANKROLL_INICIAL)
-                    msg = (f"🎯 *VALUE BET DETECTADA*\n"
-                           f"⚽ {partido['home_team']} vs {partido['away_team']}\n"
-                           f"📈 Edge: {round(edge*100, 2)}%\n"
-                           f"💰 Cuota: {odds}\n"
-                           f"📊 Stake: ${round(stake, 2)}")
-                    enviar_telegram(msg)
-
-    print("✅ Proceso finalizado correctamente.")
-
-if __name__ == "__main__":
-    main()
+def predecir(modelo, partido):
+    try:
+        h, a = partido['home_odds'], partido['away_odds']
+        return modelo.predict_proba([[h, a, h-a]])[0][1]
+    except Exception:
+        return None
