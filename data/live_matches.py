@@ -4,10 +4,7 @@ from datetime import datetime
 
 def obtener_partidos():
     api_key = os.getenv("API_FOOTBALL_KEY")
-    # Obtener fecha actual automáticamente
     hoy = datetime.now().strftime('%Y-%m-%d')
-    
-    # Consultar todos los partidos del día actual
     url = f"https://v3.football.api-sports.io/fixtures?date={hoy}"
     
     headers = {
@@ -26,7 +23,6 @@ def obtener_partidos():
         return [{
             "home_team": item['teams']['home']['name'],
             "away_team": item['teams']['away']['name'],
-            # Cuotas base (puedes cruzarlas con API_KEY_ODDS después)
             "home_odds": 1.95, 
             "away_odds": 2.05
         } for item in partidos_res]
