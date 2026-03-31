@@ -14,14 +14,13 @@ def enviar_telegram(mensaje):
         payload = {"chat_id": chat_id, "text": mensaje, "parse_mode": "Markdown"}
         try:
             requests.post(url, json=payload)
-        except:
+        except Exception:
             print("❌ Error Telegram")
 
 def main():
     print("🚀 SISTEMA PRO IA INICIADO")
     enviar_telegram("🤖 *SISTEMA PRO IA:* Analizando jornada...")
 
-    # Forzar entrenamiento si el archivo no existe
     modelo = cargar_modelo()
     if modelo is None:
         print("⚠️ Entrenando modelo...")
@@ -38,15 +37,14 @@ def main():
     apuestas_count = 0
 
     for partido in partidos:
-        if apuestas_count >= MAX_APUESTAS_DIA: break
+        if apuestas_count >= MAX_APUESTAS_DIA:
+            break
 
         odds = partido.get("home_odds")
         prob = predecir(modelo, partido)
 
         if prob and (PROB_MINIMA <= prob <= PROB_MAXIMA):
             ev, kelly = evaluar_apuesta(prob, odds)
-            
-            # Filtro de valor
             if ev >= EV_MINIMO and kelly > 0:
                 apuestas_count += 1
                 stake = min(calcular_apuesta(kelly * KELLY_FRACCION, bankroll), bankroll * APUESTA_MAXIMA_PCT)
@@ -58,7 +56,7 @@ def main():
                        f"📊 Stake: ${round(stake,2)}")
                 enviar_telegram(msg)
 
-    print(f"✅ FINALIZADO. Picks enviados: {apuestas_count}")
+    print(f"✅ FINALIZADO. Picks: {apuestas_count}")
 
 if __name__ == "__main__":
     main()
