@@ -1,5 +1,11 @@
-BANKROLL_INICIAL = 1000
+# portfolio/bankroll.py
+
+from config import APUESTA_MINIMA
 
 def calcular_apuesta(kelly, bankroll):
     stake = bankroll * kelly
-    return round(max(10, stake), 2)
+
+    if stake < APUESTA_MINIMA:
+        return 0
+
+    return round(stake, 2)
