@@ -13,28 +13,28 @@ def enviar_telegram(mensaje):
         url = f"https://api.telegram.org/bot{token}/sendMessage"
         try:
             requests.post(url, json={"chat_id": chat_id, "text": mensaje, "parse_mode": "Markdown"})
-        except:
+        except Exception:
             pass
 
 def main():
     print("🚀 SISTEMA PRO IA INICIADO")
     
-    # Intentar cargar, si falla (o no existe la carpeta), entrena y la crea
+    # Flujo lógico: Cargar -> Si falla, Entrenar (Crea carpeta y archivo)
     modelo = cargar_modelo()
     if modelo is None:
-        print("⚠️ Iniciando entrenamiento y creación de archivos...")
+        print("⚠️ Modelo no detectado. Generando estructura...")
         modelo = entrenar_modelo()
 
     if modelo is None:
-        print("❌ Error crítico: No se pudo establecer el modelo de IA.")
+        print("❌ Error crítico: No se pudo inicializar la IA.")
         return
 
     partidos = obtener_partidos()
     if not partidos:
-        print("❌ No se encontraron partidos hoy.")
+        print("❌ No hay partidos hoy.")
         return
 
-    enviar_telegram(f"🤖 *IA en línea:* Analizando {len(partidos)} partidos del día...")
+    enviar_telegram(f"🤖 *IA Activa:* Analizando {len(partidos)} partidos...")
 
     for partido in partidos:
         prob = predecir(modelo, partido)
@@ -42,19 +42,18 @@ def main():
             odds = partido['home_odds']
             edge = prob - (1/odds)
             
-            # Solo enviar si hay ventaja real
             if edge > EDGE_MINIMO:
                 ev, kelly = evaluar_apuesta(prob, odds)
                 if kelly > 0:
                     stake = calcular_apuesta(kelly * KELLY_FRACCION, BANKROLL_INICIAL)
-                    msg = (f"🎯 *VALUE BET DETECTADA*\n"
+                    msg = (f"🎯 *VALUE BET*\n"
                            f"⚽ {partido['home_team']} vs {partido['away_team']}\n"
                            f"📈 Edge: {round(edge*100, 2)}%\n"
                            f"💰 Cuota: {odds}\n"
                            f"📊 Stake: ${round(stake, 2)}")
                     enviar_telegram(msg)
 
-    print("✅ Proceso finalizado correctamente.")
+    print("✅ Proceso finalizado.")
 
 if __name__ == "__main__":
     main()
