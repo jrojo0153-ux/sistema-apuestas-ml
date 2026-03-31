@@ -26,5 +26,5 @@ def obtener_partidos():
             "home_odds": 1.95, 
             "away_odds": 2.05
         } for item in partidos_res]
-    except:
+    except
         return []
