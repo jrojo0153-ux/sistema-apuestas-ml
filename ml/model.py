@@ -4,33 +4,45 @@ import joblib
 import os
 
 def entrenar_modelo():
-    # Cargar tu Historico.csv sin moverlo de sitio
+    if not os.path.exists('Historico.csv'):
+        print("❌ Archivo Historico.csv no encontrado")
+        return None
+        
     df = pd.read_csv('Historico.csv')
     
-    # Usamos las cuotas como base, pero el modelo necesita ver la diferencia (Edge)
-    df['odds_diff'] = df['home_odds'] - df['away_odds']
+    # Ingeniería de datos: Diferencia de cuotas
+    df['diff'] = df['home_odds'] - df['away_odds']
     
-    X = df[['home_odds', 'away_odds', 'odds_diff']]
-    y = df['resultado'] # 1 si gana local, 0 si no
+    # Variables de entrada y objetivo
+    X = df[['home_odds', 'away_odds', 'diff']]
+    y = df['resultado']
     
-    # Usamos RandomForest con 100 estimadores para mayor estabilidad
+    # Modelo robusto para evitar el accuracy de 0.5
     modelo = RandomForestClassifier(n_estimators=100, random_state=42)
     modelo.fit(X, y)
     
-    # Guardar en la ruta que ya definiste en tu YAML
+    # Guardar en la ruta definida
     os.makedirs('models', exist_ok=True)
     joblib.dump(modelo, 'models/modelo.pkl')
     
     accuracy = modelo.score(X, y)
-    print(f"📊 Nuevo Accuracy de entrenamiento: {accuracy}")
+    print(f"📊 Modelo entrenado. Accuracy: {round(accuracy, 2)}")
     return modelo
 
+def cargar_modelo():
+    ruta = 'models/modelo.pkl'
+    if os.path.exists(ruta):
+        return joblib.load(ruta)
+    return None
+
 def predecir(modelo, partido):
-    # Preparar los datos del partido actual igual que el entrenamiento
-    home_odds = partido.get("home_odds")
-    away_odds = partido.get("away_odds")
-    odds_diff = home_odds - away_odds
-    
-    # El modelo devuelve la probabilidad del resultado "1" (Gana local)
-    prob = modelo.predict_proba([[home_odds, away_odds, odds_diff]])[0][1]
-    return prob
+    try:
+        h = partido.get("home_odds")
+        a = partido.get("away_odds")
+        diff = h - a
+        # Predice la probabilidad de victoria local (clase 1)
+        prob = modelo.predict_proba([[h, a, diff]])[0][1]
+        return prob
+    except Exception as e:
+        print(f"⚠️ Error en predicción: {e}")
+        return None
