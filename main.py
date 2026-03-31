@@ -1,7 +1,7 @@
 import os
 import requests
 from data.live_matches import obtener_partidos
-from ml.model import entrenar_modelo, cargar_modelo, predecir, guardar_edge_alto
+from ml.model import entrenar_modelo, cargar_modelo, predecir
 from core.value import evaluar_apuesta
 from portfolio.bankroll import calcular_apuesta
 from config import *
@@ -14,41 +14,47 @@ def enviar_telegram(mensaje):
         try:
             requests.post(url, json={"chat_id": chat_id, "text": mensaje, "parse_mode": "Markdown"})
         except:
-            print("❌ Error Telegram")
+            pass
 
 def main():
-    print("🚀 SISTEMA EDGE PRO ACTIVADO")
-    enviar_telegram("📡 *Escaneando SofaScore...* Buscando Edge de alto valor.")
+    print("🚀 SISTEMA PRO IA INICIADO")
+    
+    # Intentar cargar, si falla (o no existe la carpeta), entrena y la crea
+    modelo = cargar_modelo()
+    if modelo is None:
+        print("⚠️ Iniciando entrenamiento y creación de archivos...")
+        modelo = entrenar_modelo()
 
-    modelo = cargar_modelo() or entrenar_modelo()
+    if modelo is None:
+        print("❌ Error crítico: No se pudo establecer el modelo de IA.")
+        return
+
     partidos = obtener_partidos()
+    if not partidos:
+        print("❌ No se encontraron partidos hoy.")
+        return
+
+    enviar_telegram(f"🤖 *IA en línea:* Analizando {len(partidos)} partidos del día...")
 
     for partido in partidos:
-        odds = partido.get("home_odds")
-        prob = predecir(modelo, partido) if modelo else 0.52 # Prob base si no hay modelo
-
+        prob = predecir(modelo, partido)
         if prob:
-            prob_casa = 1 / odds
-            edge = prob - prob_casa
-
-            # DETECCIÓN DE ALTO VALOR (EDGE)
-            if edge > EDGE_MINIMO: # Configura esto en 0.05 (5%) en config.py
-                print(f"💎 EDGE DETECTADO: {edge}")
-                
-                # Guardar dato para re-entrenar el ML después
-                guardar_edge_alto(partido, prob, edge)
-                
+            odds = partido['home_odds']
+            edge = prob - (1/odds)
+            
+            # Solo enviar si hay ventaja real
+            if edge > EDGE_MINIMO:
                 ev, kelly = evaluar_apuesta(prob, odds)
-                stake = calcular_apuesta(kelly * KELLY_FRACCION, BANKROLL_INICIAL)
+                if kelly > 0:
+                    stake = calcular_apuesta(kelly * KELLY_FRACCION, BANKROLL_INICIAL)
+                    msg = (f"🎯 *VALUE BET DETECTADA*\n"
+                           f"⚽ {partido['home_team']} vs {partido['away_team']}\n"
+                           f"📈 Edge: {round(edge*100, 2)}%\n"
+                           f"💰 Cuota: {odds}\n"
+                           f"📊 Stake: ${round(stake, 2)}")
+                    enviar_telegram(msg)
 
-                msg = (f"🚩 *ALERTA DE EDGE ALTO*\n"
-                       f"⚽ {partido['home_team']} vs {partido['away_team']}\n"
-                       f"📈 Edge: {round(edge*100, 2)}%\n"
-                       f"💰 Cuota: {odds}\n"
-                       f"📊 Stake sugerido: ${round(stake, 2)}")
-                enviar_telegram(msg)
-
-    print("✅ CICLO COMPLETADO")
+    print("✅ Proceso finalizado correctamente.")
 
 if __name__ == "__main__":
     main()
