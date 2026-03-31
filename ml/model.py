@@ -4,26 +4,30 @@ import joblib
 import os
 
 def entrenar_modelo():
+    # 1. Verificar datos
     ruta_csv = 'data/Historico.csv'
     if not os.path.exists(ruta_csv):
-        print("❌ Historico.csv no encontrado")
+        print("❌ Error: data/Historico.csv no encontrado")
         return None
         
     df = pd.read_csv(ruta_csv)
-    # Aseguramos que existan las columnas para el Edge
-    if 'home_odds' not in df.columns:
-        return None
-
     df['diff'] = df['home_odds'] - df['away_odds']
+    
     X = df[['home_odds', 'away_odds', 'diff']]
     y = df['resultado']
     
+    # 2. Entrenar
     modelo = RandomForestClassifier(n_estimators=100, random_state=42)
     modelo.fit(X, y)
     
-    os.makedirs('models', exist_ok=True)
+    # 3. CREAR CARPETA SI NO EXISTE
+    if not os.path.exists('models'):
+        print("📁 Carpeta 'models' no detectada. Creándola...")
+        os.makedirs('models')
+    
+    # 4. Guardar
     joblib.dump(modelo, 'models/modelo.pkl')
-    print(f"📊 Accuracy: {modelo.score(X, y)}")
+    print(f"✅ Modelo guardado exitosamente. Accuracy: {modelo.score(X, y)}")
     return modelo
 
 def cargar_modelo():
@@ -31,9 +35,9 @@ def cargar_modelo():
     if os.path.exists(ruta):
         try:
             return joblib.load(ruta)
-        except Exception as e:
-            print(f"⚠️ Modelo incompatible o corrupto, eliminando... ({e})")
-            os.remove(ruta) # Borramos el archivo malo para que el bot cree uno nuevo
+        except:
+            print("⚠️ Modelo corrupto detectado. Eliminando para re-entrenar...")
+            os.remove(ruta)
     return None
 
 def predecir(modelo, partido):
