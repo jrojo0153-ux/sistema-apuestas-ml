@@ -1,25 +1,9 @@
-import os
-from data.live_matches import obtener_partidos
-from ml.model import entrenar_modelo, cargar_modelo, predecir
-from core.value import evaluar_apuesta
-from portfolio.bankroll import calcular_apuesta
-from config import *
-import requests
-
-def enviar_telegram(mensaje):
-    token = os.getenv("TELEGRAM_BOT_TOKEN")
-    chat_id = os.getenv("TELEGRAM_CHAT_ID")
-    if token and chat_id:
-        url = f"https://api.telegram.org/bot{token}/sendMessage"
-        try:
-            requests.post(url, json={"chat_id": chat_id, "text": mensaje, "parse_mode": "Markdown"})
-        except Exception as e:
-            print(f"Error Telegram: {e}")
+# ... (tus imports se mantienen igual)
 
 def main():
-    print("🚀 SISTEMA PRO IA - MODO SCRAPING")
+    # 1. Cambiamos el mensaje de inicio para reflejar la realidad técnica
+    print("🚀 SISTEMA QUANTBET AI - MODO API ESPN")
     
-    # Cargar o crear modelo
     modelo = cargar_modelo()
     if modelo is None:
         print("⚠️ Modelo no detectado. Entrenando...")
@@ -29,14 +13,15 @@ def main():
         print("❌ No se puede continuar sin modelo.")
         return
 
-    # Obtener partidos vía Scraping
+    # 2. Ahora llama a la nueva lógica de ESPN
     partidos = obtener_partidos()
     
     if not partidos:
-        print("❌ No se pudieron extraer partidos.")
+        print("❌ No se obtuvieron partidos de la API.")
         return
 
-    enviar_telegram(f"📡 *Scraping Activo:* Analizando {len(partidos)} eventos desde SofaScore...")
+    # 3. Mensaje de Telegram más profesional
+    enviar_telegram(f"📡 *API ESPN Activa:* Analizando {len(partidos)} eventos en tiempo real...")
 
     for partido in partidos:
         prob = predecir(modelo, partido)
@@ -48,14 +33,15 @@ def main():
                 ev, kelly = evaluar_apuesta(prob, odds)
                 if kelly > 0:
                     stake = calcular_apuesta(kelly * KELLY_FRACCION, BANKROLL_INICIAL)
-                    msg = (f"🎯 *VALUE BET (SCRAPING)*\n"
+                    # 4. Etiqueta de la señal cambiada de SCRAPING a ALGORITMO
+                    msg = (f"🎯 *SIGNAL QUANTBET AI*\n"
                            f"⚽ {partido['home_team']} vs {partido['away_team']}\n"
                            f"📈 Edge: {round(edge*100, 2)}%\n"
                            f"💰 Cuota: {odds}\n"
-                           f"📊 Stake: ${round(stake, 2)}")
+                           f"📊 Stake sugerido: ${round(stake, 2)}")
                     enviar_telegram(msg)
 
-    print("✅ Proceso completado.")
+    print("✅ Ciclo de análisis completado.")
 
 if __name__ == "__main__":
     main()
