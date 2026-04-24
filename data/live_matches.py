@@ -1,63 +1,57 @@
 import requests
-from bs4 import BeautifulSoup
 import os
-from datetime import datetime
 
 def obtener_partidos():
-    print("🌐 Iniciando scraping de SofaScore...")
+    print("🌐 Consultando API de ESPN (Sustituyendo SofaScore)...")
     
-    # Simulamos un navegador móvil para evitar bloqueos
+    # Endpoints de ESPN para Fútbol (puedes cambiar 'usa.1' por 'mex.1' para Liga MX o 'eng.1' etc.)
+    # El endpoint 'soccer/scoreboard' trae los partidos más importantes del día
+    url = "https://site.api.espn.com/apis/site/v2/sports/soccer/all/scoreboard"
+    
     headers = {
-        "User-Agent": "Mozilla/5.0 (Linux; Android 10; SM-G973F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Mobile Safari/537.36"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
     }
     
-    # URL de partidos del día
-    url = "https://www.sofascore.com/"
-    
     try:
-        response = requests.get(url, headers=headers, timeout=15)
+        response = requests.get(url, headers=headers, timeout=10)
         if response.status_code != 200:
-            print(f"❌ Error de acceso: {response.status_code}")
+            print(f"❌ Error API ESPN: {response.status_code}")
             return []
 
-        # Usamos BeautifulSoup para procesar el HTML
-        soup = BeautifulSoup(response.text, 'html.parser')
-        
-        # Buscamos los contenedores de partidos (basado en la estructura actual de SofaScore)
-        eventos = soup.find_all('div', {'class': 'sc-fqkvVR'}) # Nota: Estas clases cambian, si falla hay que revisarlas
+        datos = response.json()
+        eventos = datos.get('events', [])
         
         lista_partidos = []
         
         for evento in eventos:
             try:
-                # Extraer nombres de equipos
-                teams = evento.find_all('b')
-                if len(teams) >= 2:
-                    home = teams[0].get_text()
-                    away = teams[1].get_text()
-                    
-                    # Intentar extraer cuotas si están visibles
-                    # SofaScore suele cargar cuotas vía JS, si no están, ponemos base para el ML
-                    lista_partidos.append({
-                        "home_team": home,
-                        "away_team": away,
-                        "home_odds": 1.95, # Valor base para que el sistema no se detenga
-                        "away_odds": 3.40
-                    })
-            except Exception:
+                # Extraer información básica
+                competencia = evento['competitions'][0]
+                home_team = competencia['competitors'][0]['team']['displayName']
+                away_team = competencia['competitors'][1]['team']['displayName']
+                
+                # Intentar extraer cuotas (Odds) de la API si están disponibles
+                # ESPN a veces provee 'odds', si no, usamos tu base de 1.95
+                odds_data = competencia.get('odds', [{}])[0]
+                home_odds = odds_data.get('home', {}).get('odds', 1.95)
+                away_odds = odds_data.get('away', {}).get('odds', 3.40)
+
+                lista_partidos.append({
+                    "home_team": home_team,
+                    "away_team": away_team,
+                    "home_odds": float(home_odds),
+                    "away_odds": float(away_odds)
+                })
+            except (KeyError, IndexError):
                 continue
 
-        # Si el scraping falla por cambios en la web, retornamos una lista mínima de prueba
         if not lista_partidos:
-            print("⚠️ Estructura web cambió. Usando datos de respaldo para no detener el sistema.")
-            return [
-                {"home_team": "Team A", "away_team": "Team B", "home_odds": 2.10, "away_odds": 2.80},
-                {"home_team": "Team C", "away_team": "Team D", "home_odds": 1.75, "away_odds": 4.00}
-            ]
+            print("⚠️ No se encontraron partidos activos en ESPN.")
+            return []
 
-        print(f"✅ Scraping exitoso: {len(lista_partidos)} partidos encontrados.")
+        print(f"✅ API exitosa: {len(lista_partidos)} partidos obtenidos de ESPN.")
         return lista_partidos
 
     except Exception as e:
-        print(f"❌ Error crítico en scraping: {e}")
+        print(f"❌ Error crítico en API ESPN: {e}")
         return []
