@@ -1,4 +1,12 @@
-# ... (tus imports se mantienen igual)
+import os
+import requests
+# Importar las funciones específicas desde la carpeta 'ml' y el archivo 'model'
+from ml.model import entrenar_modelo, cargar_modelo, predecir 
+from data.live_matches import obtener_partidos
+from core.value import evaluar_apuesta
+from portfolio.bankroll import calcular_apuesta
+from config import *
+
 
 def main():
     # 1. Cambiamos el mensaje de inicio para reflejar la realidad técnica
