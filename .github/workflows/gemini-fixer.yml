@@ -1,29 +1,29 @@
-name: Gemini 3.5 Auto-Fixer
+name: Gemini ML System Evolver
 
 on:
   push:
     branches: [ main ]
-  workflow_dispatch:
+  workflow_dispatch: # Permite ejecutarlo manualmente
 
 jobs:
-  fix-repo:
+  evolve-system:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: write # Permiso para que la IA haga commits
     
     steps:
-      - name: Checkout code
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: '3.11'
 
-      - name: Install Requests
+      - name: Install Dependencies
         run: pip install requests
 
-      - name: Run Gemini 3.5 Correction
+      - name: AI Evolution Engine
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
@@ -34,77 +34,99 @@ jobs:
           import time
           import json
 
-          # Configuración basada en tu CURL
+          # Configuración de la API
           API_KEY = os.environ['GEMINI_API_KEY']
-          URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent"
+          # Usamos 1.5-flash por su gran ventana de contexto y velocidad
+          URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
           HEADERS = {
               "x-goog-api-key": API_KEY,
               "Content-Type": "application/json"
           }
 
-          # Extensiones a revisar
-          extensions = ['*.py', '*.js', '*.ts', '*.html', '*.css']
-          files = []
-          for ext in extensions:
-              files.extend(glob.glob(f'**/{ext}', recursive=True))
+          # 1. Leer instrucciones maestras (si existen)
+          master_plan = ""
+          if os.path.exists("GEMINI.md"):
+              with open("GEMINI.md", "r", encoding="utf-8") as f:
+                  master_plan = f.read()
 
-          # Excluir carpetas del sistema
-          files = [f for f in files if not any(x in f for x in ['.github', 'node_modules', 'venv'])]
+          # 2. Seleccionar archivos clave para la evolución
+          # Buscamos archivos de Python que suelen contener la lógica
+          files = glob.glob('**/*.py', recursive=True)
+          
+          # Filtro para evitar archivos innecesarios
+          exclude_list = ['.github', 'venv', 'node_modules', '__pycache__']
+          files = [f for f in files if not any(x in f for x in exclude_list)]
 
           for file_path in files:
               try:
                   with open(file_path, 'r', encoding='utf-8') as f:
                       content = f.read()
                   
-                  if len(content) < 10: continue
+                  if len(content) < 50: continue # Ignorar archivos casi vacíos
 
-                  print(f"🤖 Analizando con Gemini 3.5: {file_path}")
+                  print(f"🚀 Evolucionando lógica de: {file_path}")
                   
-                  # Estructura de datos idéntica a tu ejemplo
+                  # PROMPT ESPECIALIZADO EN MACHINE LEARNING Y RENTABILIDAD
+                  prompt = f"""
+                  ESTRATEGIA MAESTRA: {master_plan}
+                  
+                  ARCHIVO A EVOLUCIONAR: {file_path}
+                  CÓDIGO ACTUAL:
+                  {content}
+                  
+                  TAREA:
+                  Reescribe este archivo para convertirlo en un sistema de Machine Learning de alto rendimiento.
+                  1. Si es de datos: Implementa limpieza proactiva y Feature Engineering (escalado, normalización).
+                  2. Si es de predicción: Usa modelos potentes (XGBoost, RandomForest o Redes Neuronales) con validación cruzada.
+                  3. Si es de banca/dinero: Implementa Criterio de Kelly Fraccional y gestión de riesgo avanzada.
+                  4. Si es el motor principal: Añade un 'Feedback Loop' para que el sistema aprenda de sus errores pasados.
+                  
+                  REGLAS:
+                  - Devuelve ÚNICAMENTE el código corregido.
+                  - No incluyas comentarios explicativos fuera del código.
+                  - No uses bloques de Markdown (```).
+                  - Asegúrate de que las importaciones (pandas, numpy, sklearn, etc.) sean correctas.
+                  """
+                  
                   data = {
-                      "contents": [
-                          {
-                              "parts": [
-                                  {
-                                      "text": f"Actúa como programador experto. Corrige errores y optimiza este código. Devuelve SOLO el código corregido, sin explicaciones ni bloques markdown:\n\n{content}"
-                                  }
-                              ]
-                          }
-                      ]
+                      "contents": [{
+                          "parts": [{"text": prompt}]
+                      }]
                   }
                   
                   response = requests.post(f"{URL}", headers=HEADERS, json=data)
-                  result = response.json()
-
-                  # Extraer el texto de la respuesta JSON
-                  if 'candidates' in result:
-                      new_code = result['candidates'][0]['content']['parts'][0]['text'].strip()
-                      
-                      # Limpiar posibles bloques de código markdown
-                      if "```" in new_code:
-                          parts = new_code.split("```")
-                          new_code = max(parts, key=len).strip()
-                          if "\n" in new_code:
-                              first_line = new_code.split("\n")[0].lower()
-                              if first_line in ['python', 'javascript', 'html', 'css', 'ts']:
-                                  new_code = "\n".join(new_code.split("\n")[1:])
-
-                      if new_code and new_code != content:
-                          with open(file_path, 'w', encoding='utf-8') as f:
-                              f.write(new_code)
-                          print(f"✅ {file_path} actualizado con éxito.")
-                      else:
-                          print(f"   {file_path} no requería cambios.")
-                  else:
-                      print(f"❌ Error en API para {file_path}: {result}")
                   
-                  time.sleep(2) # Respetar límites
+                  if response.status_code == 200:
+                      res_json = response.json()
+                      if 'candidates' in res_json:
+                          new_code = res_json['candidates'][0]['content']['parts'][0]['text'].strip()
+                          
+                          # Limpieza de seguridad de Markdown
+                          if "```" in new_code:
+                              parts = new_code.split("```")
+                              new_code = max(parts, key=len).strip()
+                              if "\n" in new_code:
+                                  first_line = new_code.split("\n")[0].lower()
+                                  if first_line in ['python', 'py']:
+                                      new_code = "\n".join(new_code.split("\n")[1:])
+
+                          # Guardar la evolución si el código es válido
+                          if new_code and len(new_code) > (len(content) * 0.5):
+                              with open(file_path, 'w', encoding='utf-8') as f:
+                                  f.write(new_code)
+                              print(f"✅ {file_path} ha evolucionado.")
+                  else:
+                      print(f"❌ Error API ({response.status_code}): {response.text}")
+                  
+                  # Espera de seguridad para no saturar la API gratuita (60 RPM limit)
+                  time.sleep(6)
 
               except Exception as e:
-                  print(f"❌ Error procesando {file_path}: {e}")
+                  print(f"❌ Fallo en evolución de {file_path}: {e}")
           EOF
 
-      - name: Commit and Push
+      - name: Commit and Push Evolutionary Changes
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "🤖 IA: Correcciones aplicadas con Gemini 3.5 Flash"
+          commit_message: "🤖 IA: Evolución a Sistema ML Predictivo v2.0"
+          commit_author: "Gemini ML Architect <actions@github.com>"
