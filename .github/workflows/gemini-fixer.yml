@@ -1,4 +1,4 @@
-name: Gemini Auto-Fixer Total
+name: Gemini Auto-Fixer 2025
 
 on:
   push:
@@ -18,12 +18,12 @@ jobs:
           fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: '3.11' # Actualizado para evitar avisos de depreciación
 
-      - name: Install Google AI SDK
-        run: pip install -U google-generativeai  # Forzamos actualización
+      - name: Install New Google GenAI SDK
+        run: pip install -U google-genai # Instalamos la NUEVA librería oficial
 
       - name: Gemini Deep Clean and Fix
         env:
@@ -31,20 +31,13 @@ jobs:
         run: |
           python - <<'EOF'
           import os
-          import google.generativeai as genai
           import glob
           import time
+          from google import genai # Usando la nueva librería
 
-          # Configuración de la API
-          genai.configure(api_key=os.environ['GEMINI_API_KEY'])
-
-          # Intentamos usar el modelo 1.5 flash que es el estándar actual
-          # Si falla, el script te dirá qué modelos tienes disponibles
-          try:
-              model = genai.GenerativeModel('gemini-1.5-flash')
-          except Exception as e:
-              print(f"Error al cargar modelo: {e}")
-              model = genai.GenerativeModel('gemini-pro') # Fallback a Pro si Flash falla
+          # Configuración con el nuevo cliente
+          client = genai.Client(api_key=os.environ['GEMINI_API_KEY'])
+          MODEL_ID = "gemini-1.5-flash"
 
           # Extensiones a revisar
           extensions = ['*.py', '*.js', '*.ts', '*.html', '*.css', '*.json']
@@ -52,7 +45,7 @@ jobs:
           for ext in extensions:
               files.extend(glob.glob(f'**/{ext}', recursive=True))
 
-          # Filtros de exclusión
+          # Excluir carpetas innecesarias
           files = [f for f in files if not any(x in f for x in ['.github', 'node_modules', 'venv', '__pycache__'])]
 
           for file_path in files:
@@ -63,39 +56,53 @@ jobs:
                   if not original_content.strip() or len(original_content) < 10:
                       continue
 
-                  print(f"🤖 Analizando: {file_path}")
+                  print(f"🤖 Analizando con Nueva API: {file_path}")
                   
-                  prompt = f"Actúa como un experto en programación. Corrige errores, mejora la eficiencia y limpia el código del archivo {file_path}. Devuelve exclusivamente el código corregido, sin explicaciones y sin usar bloques de Markdown (```)."
+                  prompt = f"""
+                  Actúa como experto senior. Corrige bugs, errores de lógica y mejora el archivo: {file_path}
                   
-                  # Añadimos un pequeño delay para evitar saturar la API gratuita
-                  time.sleep(2) 
-
-                  response = model.generate_content([prompt, original_content])
+                  CONTENIDO:
+                  {original_content}
+                  
+                  REGLAS:
+                  1. Devuelve SOLO el código corregido.
+                  2. No uses bloques de markdown (sin ```).
+                  3. Si no hay errores, devuelve el código original exacto.
+                  """
+                  
+                  # Llamada con la nueva sintaxis de google-genai
+                  response = client.models.generate_content(
+                      model=MODEL_ID,
+                      contents=prompt
+                  )
                   
                   if not response.text:
                       continue
 
                   new_code = response.text.strip()
 
-                  # Limpieza de basura (Markdown) que a veces mete la IA
+                  # Limpieza de seguridad por si la IA ignora las reglas de markdown
                   if "```" in new_code:
-                      lines = new_code.splitlines()
-                      clean_lines = [l for l in lines if not l.strip().startswith("```")]
-                      new_code = "\n".join(clean_lines)
+                      new_code = new_code.split("```")[-2] # Intenta extraer el bloque de código
+                      if new_code.startswith("python\n") or new_code.startswith("javascript\n"):
+                          new_code = "\n".join(new_code.split("\n")[1:])
 
                   if new_code and new_code != original_content:
                       with open(file_path, 'w', encoding='utf-8') as f:
                           f.write(new_code)
-                      print(f"✅ {file_path} CORREGIDO.")
+                      print(f"✅ {file_path} REPARADO.")
                   else:
-                      print(f"   {file_path} sin cambios necesarios.")
-                      
+                      print(f"   {file_path} ya estaba correcto.")
+                  
+                  # Respetar límites de la API gratuita
+                  time.sleep(4) 
+
               except Exception as e:
-                  print(f"❌ Error en {file_path}: {e}")
+                  print(f"❌ Error crítico en {file_path}: {e}")
           EOF
 
       - name: Guardar cambios de la IA
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "🤖 IA: Corrección de errores y limpieza de código"
+          commit_message: "🤖 IA: Corrección automática (Nueva API Gemini)"
           commit_author: "Gemini AI <actions@github.com>"
