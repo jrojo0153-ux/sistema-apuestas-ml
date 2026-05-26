@@ -2,8 +2,8 @@ name: Gemini Auto-Fixer
 
 on:
   push:
-    branches: [ main ] # Se activa cada vez que subes algo a la rama main
-  workflow_dispatch: # Permite activarlo manualmente
+    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   gemini-review:
@@ -27,33 +27,69 @@ jobs:
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
-          python - <<EOF
+          python - <<'EOF'
           import os
           import google.generativeai as genai
           import glob
 
+          # Configuración
           genai.configure(api_key=os.environ['GEMINI_API_KEY'])
           model = genai.GenerativeModel('gemini-1.5-flash')
 
-          # Extensiones de archivos que quieres que la IA revise
-          extensions = ['*.js', '*.py', '*.html', '*.css', '*.ts']
+          # Buscar archivos (puedes añadir más extensiones aquí)
+          extensions = ['*.js', '*.py', '*.html', '*.css', '*.ts', '*.txt']
           files_to_review = []
           for ext in extensions:
               files_to_review.extend(glob.glob(f'**/{ext}', recursive=True))
 
+          # Evitar revisar la carpeta .github para no entrar en bucle
+          files_to_review = [f for f in files_to_review if ".github" not in f]
+
           for file_path in files_to_review:
-              with open(file_path, 'r') as f:
-                  content = f.read()
-              
-              prompt = f"Actúa como un programador experto. Revisa el siguiente código, corrige errores lógicos, mejora la eficiencia y limpia el código. Devuelve ÚNICAMENTE el código corregido, sin explicaciones ni bloques de Markdown:\n\n{content}"
-              
-              response = model.generate_content(prompt)
-              fixed_code = response.text.replace('```python', '').replace('```javascript', '').replace('```', '').strip()
-              
-              if fixed_code and len(fixed_code) > 10:
-                  with open(file_path, 'w') as f:
-                      f.write(fixed_code)
-                  print(f"Archivo {file_path} corregido.")
+              try:
+                  with open(file_path, 'r', encoding='utf-8') as f:
+                      content = f.read()
+                  
+                  if not content.strip():
+                      continue
+
+                  print(f"Analizando: {file_path}")
+                  
+                  prompt = f"""
+                  Actúa como un programador experto senior. 
+                  Revisa el siguiente código del archivo '{file_path}':
+                  
+                  {content}
+                  
+                  INSTRUCCIONES:
+                  1. Corrige errores de sintaxis y bugs.
+                  2. Optimiza el rendimiento.
+                  3. Si el código está bien, devuélvelo exactamente igual.
+                  4. Devuelve ÚNICAMENTE el código resultante. 
+                  5. No uses bloques de Markdown (sin ```), solo el texto plano del código.
+                  """
+                  
+                  response = model.generate_content(prompt)
+                  new_code = response.text.strip()
+
+                  # Limpieza de seguridad por si la IA usa bloques de código
+                  if new_code.startswith("```"):
+                      lines = new_code.splitlines()
+                      if lines[0].startswith("```"):
+                          lines = lines[1:]
+                      if lines[-1].startswith("```"):
+                          lines = lines[:-1]
+                      new_code = "\n".join(lines)
+
+                  if new_code and new_code != content:
+                      with open(file_path, 'w', encoding='utf-8') as f:
+                          f.write(new_code)
+                      print(f"✅ {file_path} ha sido corregido.")
+                  else:
+                      print(f"   {file_path} no necesita cambios.")
+                      
+              except Exception as e:
+                  print(f"❌ Error procesando {file_path}: {e}")
           EOF
 
       - name: Commit and Push changes
