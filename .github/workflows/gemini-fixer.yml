@@ -1,4 +1,4 @@
-name: Gemini Auto-Fixer 2025
+name: Gemini 3.5 Auto-Fixer
 
 on:
   push:
@@ -14,95 +14,97 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11' # Actualizado para evitar avisos de depreciación
+          python-version: '3.10'
 
-      - name: Install New Google GenAI SDK
-        run: pip install -U google-genai # Instalamos la NUEVA librería oficial
+      - name: Install Requests
+        run: pip install requests
 
-      - name: Gemini Deep Clean and Fix
+      - name: Run Gemini 3.5 Correction
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           python - <<'EOF'
           import os
+          import requests
           import glob
           import time
-          from google import genai # Usando la nueva librería
+          import json
 
-          # Configuración con el nuevo cliente
-          client = genai.Client(api_key=os.environ['GEMINI_API_KEY'])
-          MODEL_ID = "gemini-1.5-flash"
+          # Configuración basada en tu CURL
+          API_KEY = os.environ['GEMINI_API_KEY']
+          URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent"
+          HEADERS = {
+              "x-goog-api-key": API_KEY,
+              "Content-Type": "application/json"
+          }
 
           # Extensiones a revisar
-          extensions = ['*.py', '*.js', '*.ts', '*.html', '*.css', '*.json']
+          extensions = ['*.py', '*.js', '*.ts', '*.html', '*.css']
           files = []
           for ext in extensions:
               files.extend(glob.glob(f'**/{ext}', recursive=True))
 
-          # Excluir carpetas innecesarias
-          files = [f for f in files if not any(x in f for x in ['.github', 'node_modules', 'venv', '__pycache__'])]
+          # Excluir carpetas del sistema
+          files = [f for f in files if not any(x in f for x in ['.github', 'node_modules', 'venv'])]
 
           for file_path in files:
               try:
                   with open(file_path, 'r', encoding='utf-8') as f:
-                      original_content = f.read()
+                      content = f.read()
                   
-                  if not original_content.strip() or len(original_content) < 10:
-                      continue
+                  if len(content) < 10: continue
 
-                  print(f"🤖 Analizando con Nueva API: {file_path}")
+                  print(f"🤖 Analizando con Gemini 3.5: {file_path}")
                   
-                  prompt = f"""
-                  Actúa como experto senior. Corrige bugs, errores de lógica y mejora el archivo: {file_path}
+                  # Estructura de datos idéntica a tu ejemplo
+                  data = {
+                      "contents": [
+                          {
+                              "parts": [
+                                  {
+                                      "text": f"Actúa como programador experto. Corrige errores y optimiza este código. Devuelve SOLO el código corregido, sin explicaciones ni bloques markdown:\n\n{content}"
+                                  }
+                              ]
+                          }
+                      ]
+                  }
                   
-                  CONTENIDO:
-                  {original_content}
-                  
-                  REGLAS:
-                  1. Devuelve SOLO el código corregido.
-                  2. No uses bloques de markdown (sin ```).
-                  3. Si no hay errores, devuelve el código original exacto.
-                  """
-                  
-                  # Llamada con la nueva sintaxis de google-genai
-                  response = client.models.generate_content(
-                      model=MODEL_ID,
-                      contents=prompt
-                  )
-                  
-                  if not response.text:
-                      continue
+                  response = requests.post(f"{URL}", headers=HEADERS, json=data)
+                  result = response.json()
 
-                  new_code = response.text.strip()
+                  # Extraer el texto de la respuesta JSON
+                  if 'candidates' in result:
+                      new_code = result['candidates'][0]['content']['parts'][0]['text'].strip()
+                      
+                      # Limpiar posibles bloques de código markdown
+                      if "```" in new_code:
+                          parts = new_code.split("```")
+                          new_code = max(parts, key=len).strip()
+                          if "\n" in new_code:
+                              first_line = new_code.split("\n")[0].lower()
+                              if first_line in ['python', 'javascript', 'html', 'css', 'ts']:
+                                  new_code = "\n".join(new_code.split("\n")[1:])
 
-                  # Limpieza de seguridad por si la IA ignora las reglas de markdown
-                  if "```" in new_code:
-                      new_code = new_code.split("```")[-2] # Intenta extraer el bloque de código
-                      if new_code.startswith("python\n") or new_code.startswith("javascript\n"):
-                          new_code = "\n".join(new_code.split("\n")[1:])
-
-                  if new_code and new_code != original_content:
-                      with open(file_path, 'w', encoding='utf-8') as f:
-                          f.write(new_code)
-                      print(f"✅ {file_path} REPARADO.")
+                      if new_code and new_code != content:
+                          with open(file_path, 'w', encoding='utf-8') as f:
+                              f.write(new_code)
+                          print(f"✅ {file_path} actualizado con éxito.")
+                      else:
+                          print(f"   {file_path} no requería cambios.")
                   else:
-                      print(f"   {file_path} ya estaba correcto.")
+                      print(f"❌ Error en API para {file_path}: {result}")
                   
-                  # Respetar límites de la API gratuita
-                  time.sleep(4) 
+                  time.sleep(2) # Respetar límites
 
               except Exception as e:
-                  print(f"❌ Error crítico en {file_path}: {e}")
+                  print(f"❌ Error procesando {file_path}: {e}")
           EOF
 
-      - name: Guardar cambios de la IA
+      - name: Commit and Push
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "🤖 IA: Corrección automática (Nueva API Gemini)"
-          commit_author: "Gemini AI <actions@github.com>"
+          commit_message: "🤖 IA: Correcciones aplicadas con Gemini 3.5 Flash"
