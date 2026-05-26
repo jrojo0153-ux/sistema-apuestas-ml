@@ -1,29 +1,29 @@
-name: Gemini ML System Evolver
+name: Gemini 3.5 ML System Evolver
 
 on:
   push:
     branches: [ main ]
-  workflow_dispatch: # Permite ejecutarlo manualmente
+  workflow_dispatch:
 
 jobs:
-  evolve-system:
+  upgrade-repo:
     runs-on: ubuntu-latest
     permissions:
-      contents: write # Permiso para que la IA haga commits
-    
+      contents: write
+
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python 3.11
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Install Dependencies
+      - name: Install dependencies
         run: pip install requests
 
-      - name: AI Evolution Engine
+      - name: Transform to ML System
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
@@ -34,99 +34,92 @@ jobs:
           import time
           import json
 
-          # Configuración de la API
+          # CONFIGURACIÓN BASADA EN TU CURL
           API_KEY = os.environ['GEMINI_API_KEY']
-          # Usamos 1.5-flash por su gran ventana de contexto y velocidad
-          URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
+          # Usamos exactamente la URL que proporcionaste
+          URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent"
           HEADERS = {
               "x-goog-api-key": API_KEY,
               "Content-Type": "application/json"
           }
 
-          # 1. Leer instrucciones maestras (si existen)
-          master_plan = ""
-          if os.path.exists("GEMINI.md"):
-              with open("GEMINI.md", "r", encoding="utf-8") as f:
-                  master_plan = f.read()
-
-          # 2. Seleccionar archivos clave para la evolución
-          # Buscamos archivos de Python que suelen contener la lógica
+          # Extensiones a transformar
           files = glob.glob('**/*.py', recursive=True)
           
-          # Filtro para evitar archivos innecesarios
-          exclude_list = ['.github', 'venv', 'node_modules', '__pycache__']
-          files = [f for f in files if not any(x in f for x in exclude_list)]
+          # Evitar carpetas de sistema
+          files = [f for f in files if not any(x in f for x in ['.github', 'venv', 'node_modules'])]
 
           for file_path in files:
               try:
                   with open(file_path, 'r', encoding='utf-8') as f:
-                      content = f.read()
+                      original_content = f.read()
                   
-                  if len(content) < 50: continue # Ignorar archivos casi vacíos
+                  if len(original_content) < 20:
+                      continue
 
-                  print(f"🚀 Evolucionando lógica de: {file_path}")
+                  print(f"🧠 Evolucionando {file_path} a ML avanzado...")
+
+                  # PROMPT PARA RENTABILIDAD Y MACHINE LEARNING
+                  prompt_text = f"""
+                  Transforma este código en una versión de Machine Learning profesional, potente y rentable.
                   
-                  # PROMPT ESPECIALIZADO EN MACHINE LEARNING Y RENTABILIDAD
-                  prompt = f"""
-                  ESTRATEGIA MAESTRA: {master_plan}
-                  
-                  ARCHIVO A EVOLUCIONAR: {file_path}
-                  CÓDIGO ACTUAL:
-                  {content}
-                  
-                  TAREA:
-                  Reescribe este archivo para convertirlo en un sistema de Machine Learning de alto rendimiento.
-                  1. Si es de datos: Implementa limpieza proactiva y Feature Engineering (escalado, normalización).
-                  2. Si es de predicción: Usa modelos potentes (XGBoost, RandomForest o Redes Neuronales) con validación cruzada.
-                  3. Si es de banca/dinero: Implementa Criterio de Kelly Fraccional y gestión de riesgo avanzada.
-                  4. Si es el motor principal: Añade un 'Feedback Loop' para que el sistema aprenda de sus errores pasados.
-                  
-                  REGLAS:
-                  - Devuelve ÚNICAMENTE el código corregido.
-                  - No incluyas comentarios explicativos fuera del código.
-                  - No uses bloques de Markdown (```).
-                  - Asegúrate de que las importaciones (pandas, numpy, sklearn, etc.) sean correctas.
+                  OBJETIVOS:
+                  1. Implementar modelos predictivos (XGBoost/LGBM) si el archivo es de lógica.
+                  2. Optimizar la gestión de banca con Criterio de Kelly avanzado.
+                  3. Añadir ingeniería de variables (features) para maximizar el ROI.
+                  4. Asegurar que el sistema sea modular y escalable.
+
+                  CÓDIGO ORIGINAL:
+                  {original_content}
+
+                  REGLA CRÍTICA: Devuelve SOLO el código nuevo. Sin explicaciones. Sin bloques de markdown ```.
                   """
-                  
-                  data = {
-                      "contents": [{
-                          "parts": [{"text": prompt}]
-                      }]
+
+                  # Estructura de datos EXACTA a tu ejemplo de CURL
+                  payload = {
+                      "contents": [
+                          {
+                              "parts": [
+                                  {
+                                      "text": prompt_text
+                                  }
+                              ]
+                          }
+                      ]
                   }
-                  
-                  response = requests.post(f"{URL}", headers=HEADERS, json=data)
+
+                  response = requests.post(URL, headers=HEADERS, json=payload)
                   
                   if response.status_code == 200:
-                      res_json = response.json()
-                      if 'candidates' in res_json:
-                          new_code = res_json['candidates'][0]['content']['parts'][0]['text'].strip()
+                      data = response.json()
+                      if 'candidates' in data and data['candidates']:
+                          new_code = data['candidates'][0]['content']['parts'][0]['text'].strip()
                           
-                          # Limpieza de seguridad de Markdown
+                          # Limpieza por si la IA incluye markdown a pesar de la instrucción
                           if "```" in new_code:
-                              parts = new_code.split("```")
-                              new_code = max(parts, key=len).strip()
-                              if "\n" in new_code:
-                                  first_line = new_code.split("\n")[0].lower()
-                                  if first_line in ['python', 'py']:
-                                      new_code = "\n".join(new_code.split("\n")[1:])
+                              new_code = new_code.split("```")
+                              new_code = max(new_code, key=len).strip()
+                              if new_code.startswith("python"):
+                                  new_code = new_code[6:].strip()
 
-                          # Guardar la evolución si el código es válido
-                          if new_code and len(new_code) > (len(content) * 0.5):
+                          if new_code and new_code != original_content:
                               with open(file_path, 'w', encoding='utf-8') as f:
                                   f.write(new_code)
-                              print(f"✅ {file_path} ha evolucionado.")
+                              print(f"✅ {file_path} evolucionado a versión rentable.")
+                      else:
+                          print(f"⚠️ La API no devolvió candidatos para {file_path}")
                   else:
-                      print(f"❌ Error API ({response.status_code}): {response.text}")
-                  
-                  # Espera de seguridad para no saturar la API gratuita (60 RPM limit)
-                  time.sleep(6)
+                      print(f"❌ Error en API ({response.status_code}): {response.text}")
+
+                  # Delay para no exceder cuotas de la API
+                  time.sleep(5)
 
               except Exception as e:
-                  print(f"❌ Fallo en evolución de {file_path}: {e}")
+                  print(f"❌ Error procesando {file_path}: {e}")
           EOF
 
-      - name: Commit and Push Evolutionary Changes
+      - name: Save Evolutionary Changes
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "🤖 IA: Evolución a Sistema ML Predictivo v2.0"
+          commit_message: "🤖 IA: Upgrade a Sistema ML Predictivo y Rentable"
           commit_author: "Gemini ML Architect <actions@github.com>"
