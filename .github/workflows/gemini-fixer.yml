@@ -3,13 +3,13 @@ name: Gemini Auto-Fixer Total
 on:
   push:
     branches: [ main ]
-  workflow_dispatch: # Permite ejecutarlo manualmente desde la pestaña Actions
+  workflow_dispatch:
 
 jobs:
   fix-repo:
     runs-on: ubuntu-latest
     permissions:
-      contents: write # Obligatorio para que la IA pueda escribir en tu repositorio
+      contents: write
     
     steps:
       - name: Checkout code
@@ -23,7 +23,7 @@ jobs:
           python-version: '3.10'
 
       - name: Install Google AI SDK
-        run: pip install -q -U google-generativeai
+        run: pip install -U google-generativeai  # Forzamos actualización
 
       - name: Gemini Deep Clean and Fix
         env:
@@ -33,18 +33,26 @@ jobs:
           import os
           import google.generativeai as genai
           import glob
+          import time
 
+          # Configuración de la API
           genai.configure(api_key=os.environ['GEMINI_API_KEY'])
-          # Usamos gemini-1.5-flash por su rapidez y ventana de contexto
-          model = genai.GenerativeModel('gemini-1.5-flash')
 
-          # Definimos qué archivos queremos que repare
-          extensions = ['*.js', '*.py', '*.html', '*.css', '*.ts', '*.json', '*.php', '*.java']
+          # Intentamos usar el modelo 1.5 flash que es el estándar actual
+          # Si falla, el script te dirá qué modelos tienes disponibles
+          try:
+              model = genai.GenerativeModel('gemini-1.5-flash')
+          except Exception as e:
+              print(f"Error al cargar modelo: {e}")
+              model = genai.GenerativeModel('gemini-pro') # Fallback a Pro si Flash falla
+
+          # Extensiones a revisar
+          extensions = ['*.py', '*.js', '*.ts', '*.html', '*.css', '*.json']
           files = []
           for ext in extensions:
               files.extend(glob.glob(f'**/{ext}', recursive=True))
 
-          # Filtros para no tocar archivos internos de Git o Node
+          # Filtros de exclusión
           files = [f for f in files if not any(x in f for x in ['.github', 'node_modules', 'venv', '__pycache__'])]
 
           for file_path in files:
@@ -52,50 +60,35 @@ jobs:
                   with open(file_path, 'r', encoding='utf-8') as f:
                       original_content = f.read()
                   
-                  if not original_content.strip():
+                  if not original_content.strip() or len(original_content) < 10:
                       continue
 
-                  print(f"🤖 Analizando y reparando: {file_path}")
+                  print(f"🤖 Analizando: {file_path}")
                   
-                  # Prompt ultra-específico para corrección automática
-                  prompt = f"""
-                  ERES UN INGENIERO DE SOFTWARE SENIOR.
-                  TU OBJETIVO: Corregir absolutamente todos los errores en este archivo.
+                  prompt = f"Actúa como un experto en programación. Corrige errores, mejora la eficiencia y limpia el código del archivo {file_path}. Devuelve exclusivamente el código corregido, sin explicaciones y sin usar bloques de Markdown (```)."
                   
-                  TAREAS:
-                  1. Corrige errores de sintaxis que impidan la ejecución.
-                  2. Identifica y arregla errores de lógica.
-                  3. Mejora el rendimiento y la legibilidad.
-                  4. Asegura que el código sea moderno y siga las mejores prácticas.
-                  5. Si el archivo está vacío o no tiene sentido, no devuelvas nada.
+                  # Añadimos un pequeño delay para evitar saturar la API gratuita
+                  time.sleep(2) 
 
-                  ARCHIVO: {file_path}
-                  CONTENIDO:
-                  {original_content}
-
-                  IMPORTANTE: 
-                  - Responde ÚNICAMENTE con el código corregido.
-                  - NO incluyas explicaciones. 
-                  - NO uses bloques de código con triple comilla (```).
-                  - NO alteres la funcionalidad principal a menos que esté rota.
-                  """
+                  response = model.generate_content([prompt, original_content])
                   
-                  response = model.generate_content(prompt)
+                  if not response.text:
+                      continue
+
                   new_code = response.text.strip()
 
-                  # Limpieza extrema de la respuesta (por si la IA pone basura)
+                  # Limpieza de basura (Markdown) que a veces mete la IA
                   if "```" in new_code:
-                      # Extraer solo lo que está dentro de las comillas si la IA falló en seguir instrucciones
                       lines = new_code.splitlines()
-                      clean_lines = [l for l in lines if not l.startswith("```")]
+                      clean_lines = [l for l in lines if not l.strip().startswith("```")]
                       new_code = "\n".join(clean_lines)
 
                   if new_code and new_code != original_content:
                       with open(file_path, 'w', encoding='utf-8') as f:
                           f.write(new_code)
-                      print(f"✅ {file_path} REPARADO Y OPTIMIZADO.")
+                      print(f"✅ {file_path} CORREGIDO.")
                   else:
-                      print(f"   {file_path} ya es perfecto.")
+                      print(f"   {file_path} sin cambios necesarios.")
                       
               except Exception as e:
                   print(f"❌ Error en {file_path}: {e}")
@@ -104,5 +97,5 @@ jobs:
       - name: Guardar cambios de la IA
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "🤖 IA: Reparación total de errores y optimización"
+          commit_message: "🤖 IA: Corrección de errores y limpieza de código"
           commit_author: "Gemini AI <actions@github.com>"
