@@ -1,22 +1,20 @@
 import requests
 
 def obtener_partidos():
-    print("🌐 Consultando API de ESPN (Sustituyendo SofaScore)...")
-    
-    # Endpoint general de fútbol
+    print("🌐 Consultando API de ESPN...")
     url = "https://site.api.espn.com/apis/site/v2/sports/soccer/all/scoreboard"
-    
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
     }
     
     try:
-        response = requests.get(url, headers=headers, timeout=10)
-        datos = response.json()
+        with requests.Session() as session:
+            response = session.get(url, headers=headers, timeout=10)
+            response.raise_for_status()
+            datos = response.json()
         
-        # Validación de seguridad: ¿Hay eventos hoy?
         eventos = datos.get('events')
-        if eventos is None:
+        if not eventos:
             print("⚠️ No hay eventos programados en el JSON de ESPN.")
             return []
         
@@ -24,28 +22,45 @@ def obtener_partidos():
         
         for evento in eventos:
             try:
-                # Acceso seguro a las competiciones
-                competencias = evento.get('competitions', [{}])
+                competencias = evento.get('competitions', [])
+                if not competencias:
+                    continue
                 comp = competencias[0]
                 
-                # Extraer equipos
                 competitors = comp.get('competitors', [])
-                if len(competitors) < 2: continue
+                if len(competitors) < 2:
+                    continue
                 
-                home_team = competitors[0].get('team', {}).get('displayName', 'Local')
-                away_team = competitors[1].get('team', {}).get('displayName', 'Visitante')
+                home_team = 'Local'
+                away_team = 'Visitante'
+                for competitor in competitors:
+                    role = competitor.get('homeAway')
+                    name = competitor.get('team', {}).get('displayName')
+                    if role == 'home':
+                        home_team = name or home_team
+                    elif role == 'away':
+                        away_team = name or away_team
                 
-                # --- MANEJO ROBUSTO DE ODDS ---
-                # ESPN no siempre tiene cuotas para todas las ligas
                 odds_list = comp.get('odds', [])
                 home_odds = 1.95
                 away_odds = 3.40
                 
                 if odds_list and isinstance(odds_list, list):
                     item = odds_list[0]
-                    # Intentar sacar cuotas reales si existen
-                    home_odds = item.get('home', {}).get('odds', 1.95)
-                    away_odds = item.get('away', {}).get('odds', 3.40)
+                    raw_home = item.get('homeTeamOdds', {}).get('moneyLine') or item.get('home', {}).get('odds')
+                    raw_away = item.get('awayTeamOdds', {}).get('moneyLine') or item.get('away', {}).get('odds')
+                    
+                    try:
+                        if raw_home is not None:
+                            home_odds = float(raw_home)
+                    except (ValueError, TypeError):
+                        pass
+                        
+                    try:
+                        if raw_away is not None:
+                            away_odds = float(raw_away)
+                    except (ValueError, TypeError):
+                        pass
 
                 lista_partidos.append({
                     "home_team": home_team,
@@ -54,8 +69,7 @@ def obtener_partidos():
                     "away_odds": float(away_odds)
                 })
                 
-            except Exception as e:
-                # Si un partido falla, pasamos al siguiente sin tumbar todo el script
+            except Exception:
                 continue
 
         print(f"✅ API exitosa: {len(lista_partidos)} partidos procesados.")

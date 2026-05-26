@@ -1,17 +1,13 @@
-# core/value.py
-
-def evaluar_apuesta(prob, odds):
+def evaluar_apuesta(prob: float, odds: float) -> tuple[float, float]:
     """
-    Calcula:
+    Calcula de manera optimizada:
     - EV (Expected Value)
-    - Kelly Criterion
+    - Criterio de Kelly (simplificado matemáticamente a EV / net_odds)
     """
+    if odds <= 1.0 or not (0.0 <= prob <= 1.0):
+        return -1.0, -1.0
 
-    if odds <= 1:
-        return -1, -1
-
-    ev = (prob * odds) - 1
-
-    kelly = ((prob * (odds - 1)) - (1 - prob)) / (odds - 1)
+    ev = (prob * odds) - 1.0
+    kelly = ev / (odds - 1.0)
 
     return ev, kelly

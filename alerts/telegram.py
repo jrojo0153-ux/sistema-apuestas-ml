@@ -1,17 +1,24 @@
-import requests
 import os
+import requests
+
+TOKEN = os.getenv("TELEGRAM_TOKEN")
+CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
 def enviar_alerta(mensaje):
-    token = os.getenv("TELEGRAM_TOKEN")
-    chat_id = os.getenv("TELEGRAM_CHAT_ID")
-
-    if not token or not chat_id:
+    if not TOKEN or not CHAT_ID:
         print("⚠️ Telegram no configurado")
-        return
+        return False
 
-    url = f"https://api.telegram.org/bot{token}/sendMessage"
-
-    requests.post(url, json={
-        "chat_id": chat_id,
+    url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
+    payload = {
+        "chat_id": CHAT_ID,
         "text": mensaje
-    })
+    }
+
+    try:
+        response = requests.post(url, json=payload, timeout=10)
+        response.raise_for_status()
+        return True
+    except requests.exceptions.RequestException as e:
+        print(f"❌ Error al enviar alerta de Telegram: {e}")
+        return False
