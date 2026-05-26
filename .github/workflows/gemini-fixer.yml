@@ -1,29 +1,31 @@
-name: Gemini Auto-Fixer
+name: Gemini Auto-Fixer Total
 
 on:
   push:
     branches: [ main ]
-  workflow_dispatch:
+  workflow_dispatch: # Permite ejecutarlo manualmente desde la pestaña Actions
 
 jobs:
-  gemini-review:
+  fix-repo:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: write # Obligatorio para que la IA pueda escribir en tu repositorio
     
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
 
-      - name: Install dependencies
+      - name: Install Google AI SDK
         run: pip install -q -U google-generativeai
 
-      - name: Run Gemini Fixer
+      - name: Gemini Deep Clean and Fix
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
@@ -32,67 +34,75 @@ jobs:
           import google.generativeai as genai
           import glob
 
-          # Configuración
           genai.configure(api_key=os.environ['GEMINI_API_KEY'])
+          # Usamos gemini-1.5-flash por su rapidez y ventana de contexto
           model = genai.GenerativeModel('gemini-1.5-flash')
 
-          # Buscar archivos (puedes añadir más extensiones aquí)
-          extensions = ['*.js', '*.py', '*.html', '*.css', '*.ts', '*.txt']
-          files_to_review = []
+          # Definimos qué archivos queremos que repare
+          extensions = ['*.js', '*.py', '*.html', '*.css', '*.ts', '*.json', '*.php', '*.java']
+          files = []
           for ext in extensions:
-              files_to_review.extend(glob.glob(f'**/{ext}', recursive=True))
+              files.extend(glob.glob(f'**/{ext}', recursive=True))
 
-          # Evitar revisar la carpeta .github para no entrar en bucle
-          files_to_review = [f for f in files_to_review if ".github" not in f]
+          # Filtros para no tocar archivos internos de Git o Node
+          files = [f for f in files if not any(x in f for x in ['.github', 'node_modules', 'venv', '__pycache__'])]
 
-          for file_path in files_to_review:
+          for file_path in files:
               try:
                   with open(file_path, 'r', encoding='utf-8') as f:
-                      content = f.read()
+                      original_content = f.read()
                   
-                  if not content.strip():
+                  if not original_content.strip():
                       continue
 
-                  print(f"Analizando: {file_path}")
+                  print(f"🤖 Analizando y reparando: {file_path}")
                   
+                  # Prompt ultra-específico para corrección automática
                   prompt = f"""
-                  Actúa como un programador experto senior. 
-                  Revisa el siguiente código del archivo '{file_path}':
+                  ERES UN INGENIERO DE SOFTWARE SENIOR.
+                  TU OBJETIVO: Corregir absolutamente todos los errores en este archivo.
                   
-                  {content}
-                  
-                  INSTRUCCIONES:
-                  1. Corrige errores de sintaxis y bugs.
-                  2. Optimiza el rendimiento.
-                  3. Si el código está bien, devuélvelo exactamente igual.
-                  4. Devuelve ÚNICAMENTE el código resultante. 
-                  5. No uses bloques de Markdown (sin ```), solo el texto plano del código.
+                  TAREAS:
+                  1. Corrige errores de sintaxis que impidan la ejecución.
+                  2. Identifica y arregla errores de lógica.
+                  3. Mejora el rendimiento y la legibilidad.
+                  4. Asegura que el código sea moderno y siga las mejores prácticas.
+                  5. Si el archivo está vacío o no tiene sentido, no devuelvas nada.
+
+                  ARCHIVO: {file_path}
+                  CONTENIDO:
+                  {original_content}
+
+                  IMPORTANTE: 
+                  - Responde ÚNICAMENTE con el código corregido.
+                  - NO incluyas explicaciones. 
+                  - NO uses bloques de código con triple comilla (```).
+                  - NO alteres la funcionalidad principal a menos que esté rota.
                   """
                   
                   response = model.generate_content(prompt)
                   new_code = response.text.strip()
 
-                  # Limpieza de seguridad por si la IA usa bloques de código
-                  if new_code.startswith("```"):
+                  # Limpieza extrema de la respuesta (por si la IA pone basura)
+                  if "```" in new_code:
+                      # Extraer solo lo que está dentro de las comillas si la IA falló en seguir instrucciones
                       lines = new_code.splitlines()
-                      if lines[0].startswith("```"):
-                          lines = lines[1:]
-                      if lines[-1].startswith("```"):
-                          lines = lines[:-1]
-                      new_code = "\n".join(lines)
+                      clean_lines = [l for l in lines if not l.startswith("```")]
+                      new_code = "\n".join(clean_lines)
 
-                  if new_code and new_code != content:
+                  if new_code and new_code != original_content:
                       with open(file_path, 'w', encoding='utf-8') as f:
                           f.write(new_code)
-                      print(f"✅ {file_path} ha sido corregido.")
+                      print(f"✅ {file_path} REPARADO Y OPTIMIZADO.")
                   else:
-                      print(f"   {file_path} no necesita cambios.")
+                      print(f"   {file_path} ya es perfecto.")
                       
               except Exception as e:
-                  print(f"❌ Error procesando {file_path}: {e}")
+                  print(f"❌ Error en {file_path}: {e}")
           EOF
 
-      - name: Commit and Push changes
+      - name: Guardar cambios de la IA
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "🤖 IA: Correcciones automáticas aplicadas por Gemini"
+          commit_message: "🤖 IA: Reparación total de errores y optimización"
+          commit_author: "Gemini AI <actions@github.com>"
