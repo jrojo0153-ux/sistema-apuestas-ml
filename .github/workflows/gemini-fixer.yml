@@ -1,0 +1,62 @@
+name: Gemini Auto-Fixer
+
+on:
+  push:
+    branches: [ main ] # Se activa cada vez que subes algo a la rama main
+  workflow_dispatch: # Permite activarlo manualmente
+
+jobs:
+  gemini-review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: pip install -q -U google-generativeai
+
+      - name: Run Gemini Fixer
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          python - <<EOF
+          import os
+          import google.generativeai as genai
+          import glob
+
+          genai.configure(api_key=os.environ['GEMINI_API_KEY'])
+          model = genai.GenerativeModel('gemini-1.5-flash')
+
+          # Extensiones de archivos que quieres que la IA revise
+          extensions = ['*.js', '*.py', '*.html', '*.css', '*.ts']
+          files_to_review = []
+          for ext in extensions:
+              files_to_review.extend(glob.glob(f'**/{ext}', recursive=True))
+
+          for file_path in files_to_review:
+              with open(file_path, 'r') as f:
+                  content = f.read()
+              
+              prompt = f"Actúa como un programador experto. Revisa el siguiente código, corrige errores lógicos, mejora la eficiencia y limpia el código. Devuelve ÚNICAMENTE el código corregido, sin explicaciones ni bloques de Markdown:\n\n{content}"
+              
+              response = model.generate_content(prompt)
+              fixed_code = response.text.replace('```python', '').replace('```javascript', '').replace('```', '').strip()
+              
+              if fixed_code and len(fixed_code) > 10:
+                  with open(file_path, 'w') as f:
+                      f.write(fixed_code)
+                  print(f"Archivo {file_path} corregido.")
+          EOF
+
+      - name: Commit and Push changes
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "🤖 IA: Correcciones automáticas aplicadas por Gemini"
