@@ -3,3 +3,4 @@ beautifulsoup4
 pandas
 scikit-learn
 joblib
+xgboost
