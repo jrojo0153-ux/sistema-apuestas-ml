@@ -9,30 +9,32 @@ import os
 def train_models():
     print("Iniciando entrenamiento avanzado...")
     
-    # Usar el archivo que sí tiene datos de goles (basado en la inspección)
-    # Nota: wc_all_matches.csv o Fifa_world_cup_matches.csv suelen tener scores
-    possible_files = ['data/Fifa_world_cup_matches.csv', 'data/wc_all_matches.csv', 'data/matches.csv']
-    df = None
+    # Mapeo de archivos y sus respectivas columnas de goles
+    config = [
+        {'file': 'data/wc_all_matches.csv', 'h': 'score1', 'a': 'score2'},
+        {'file': 'data/Fifa_world_cup_matches.csv', 'h': 'number of goals team1', 'a': 'number of goals team2'}
+    ]
     
-    for f in possible_files:
-        if os.path.exists(f):
-            temp = pd.read_csv(f)
-            if 'home_score' in temp.columns or 'goals_home' in temp.columns:
+    df = None
+    for item in config:
+        if os.path.exists(item['file']):
+            temp = pd.read_csv(item['file'])
+            if item['h'] in temp.columns:
+                temp = temp.rename(columns={item['h']: 'home_score', item['a']: 'away_score'})
                 df = temp
-                print(f"Usando {f} para entrenamiento.")
+                print(f"Usando {item['file']} para el entrenamiento.")
                 break
 
     if df is None:
-        print("No se encontró un dataset con columnas de puntuación.")
+        print("No se encontró un dataset válido para entrenar.")
         return
 
-    # Estandarizar nombres de columnas si es necesario
-    if 'goals_home' in df.columns: df.rename(columns={'goals_home': 'home_score', 'goals_away': 'away_score'}, inplace=True)
-    
-    df['total_goals'] = df['home_score'] + df['away_score']
+    # Limpieza: eliminar filas sin score y calcular total
+    df = df.dropna(subset=['home_score', 'away_score'])
+    df['total_goals'] = df['home_score'].astype(float) + df['away_score'].astype(float)
     
     # Features: Equipos
-    X = pd.get_dummies(df[['home_team', 'away_team']], drop_first=True)
+    X = pd.get_dummies(df[['team1', 'team2']], drop_first=True)
     y = df['total_goals']
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
