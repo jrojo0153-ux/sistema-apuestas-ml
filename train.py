@@ -3,55 +3,48 @@ import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.linear_model import LinearRegression
-import lightgbm as lgb
 import joblib
 import os
 
 def train_models():
-    print("Iniciando entrenamiento de modelos...")
+    print("Iniciando entrenamiento avanzado...")
     
-    # Cargar datos principales
-    try:
-        matches = pd.read_csv('data/matches.csv')
-        # Intentar cargar datos adicionales si existen para enriquecer
-        if os.path.exists('data/Fifa_world_cup_matches.csv'):
-            extra_matches = pd.read_csv('data/Fifa_world_cup_matches.csv')
-            # Lógica simple de unión (ejemplo)
-            # matches = pd.concat([matches, extra_matches], ignore_index=True)
-    except Exception as e:
-        print(f"Error cargando datos: {e}")
+    # Usar el archivo que sí tiene datos de goles (basado en la inspección)
+    # Nota: wc_all_matches.csv o Fifa_world_cup_matches.csv suelen tener scores
+    possible_files = ['data/Fifa_world_cup_matches.csv', 'data/wc_all_matches.csv', 'data/matches.csv']
+    df = None
+    
+    for f in possible_files:
+        if os.path.exists(f):
+            temp = pd.read_csv(f)
+            if 'home_score' in temp.columns or 'goals_home' in temp.columns:
+                df = temp
+                print(f"Usando {f} para entrenamiento.")
+                break
+
+    if df is None:
+        print("No se encontró un dataset con columnas de puntuación.")
         return
 
-    # Preprocesamiento básico (Ejemplo: Predecir goles totales)
-    # Nota: Aquí se ajustaría a la lógica específica del usuario
-    if 'home_score' in matches.columns and 'away_score' in matches.columns:
-        matches['total_goals'] = matches['home_score'] + matches['away_score']
-        
-        # Features simples: Codificación de equipos
-        X = pd.get_dummies(matches[['home_team', 'away_team']], drop_first=True)
-        y = matches['total_goals']
+    # Estandarizar nombres de columnas si es necesario
+    if 'goals_home' in df.columns: df.rename(columns={'goals_home': 'home_score', 'goals_away': 'away_score'}, inplace=True)
+    
+    df['total_goals'] = df['home_score'] + df['away_score']
+    
+    # Features: Equipos
+    X = pd.get_dummies(df[['home_team', 'away_team']], drop_first=True)
+    y = df['total_goals']
 
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-        # 1. Random Forest
-        rf = RandomForestRegressor(n_estimators=100)
-        rf.fit(X_train, y_train)
-        print(f"Random Forest Score: {rf.score(X_test, y_test)}")
+    model = RandomForestRegressor(n_estimators=100, random_state=42)
+    model.fit(X_train, y_train)
+    
+    print(f"Modelo entrenado. Score R2: {model.score(X_test, y_test)}")
 
-        # 2. LightGBM
-        train_data = lgb.Dataset(X_train, label=y_train)
-        params = {'objective': 'regression', 'metric': 'rmse'}
-        bst = lgb.train(params, train_data, num_boost_round=50)
-
-        # Guardar el modelo principal
-        os.makedirs('models', exist_ok=True)
-        joblib.dump(rf, 'models/modelo_rf.pkl')
-        bst.save_model('models/modelo_lgb.txt')
-        
-        print("Modelos entrenados y guardados en la carpeta models/")
-    else:
-        print("No se encontraron las columnas necesarias para el entrenamiento en matches.csv")
+    os.makedirs('models', exist_ok=True)
+    joblib.dump(model, 'models/modelo_rf.pkl')
+    print("Modelo guardado en models/modelo_rf.pkl")
 
 if __name__ == '__main__':
     train_models()
