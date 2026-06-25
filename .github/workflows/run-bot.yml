@@ -8,7 +8,6 @@ on:
 jobs:
   run-bot:
     runs-on: ubuntu-latest
-
     steps:
       - name: Clonar repositorio
         uses: actions/checkout@v4
@@ -21,6 +20,9 @@ jobs:
       - name: Instalar dependencias
         run: pip install -r requirements.txt
 
+      - name: Crear directorio de modelos
+        run: mkdir -p models
+
       - name: Ejecutar bot
         run: python main.py
 
@@ -29,3 +31,4 @@ jobs:
         with:
           name: modelo-ia
           path: models/modelo.pkl
+          if-no-files-found: warn

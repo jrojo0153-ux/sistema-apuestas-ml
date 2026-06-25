@@ -27,99 +27,34 @@ jobs:
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
-          python - <<'EOF'
-          import os
-          import requests
-          import glob
-          import time
-          import json
-
-          # CONFIGURACIÓN BASADA EN TU CURL
-          API_KEY = os.environ['GEMINI_API_KEY']
-          # Usamos exactamente la URL que proporcionaste
-          URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent"
-          HEADERS = {
-              "x-goog-api-key": API_KEY,
-              "Content-Type": "application/json"
-          }
-
-          # Extensiones a transformar
-          files = glob.glob('**/*.py', recursive=True)
+          cat << 'EOF' > evolve.py
+          import os, requests, time
+          URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={os.getenv('GEMINI_API_KEY')}"
+          HEADERS = {'Content-Type': 'application/json'}
           
-          # Evitar carpetas de sistema
-          files = [f for f in files if not any(x in f for x in ['.github', 'venv', 'node_modules'])]
-
-          for file_path in files:
-              try:
-                  with open(file_path, 'r', encoding='utf-8') as f:
-                      original_content = f.read()
-                  
-                  if len(original_content) < 20:
-                      continue
-
-                  print(f"🧠 Evolucionando {file_path} a ML avanzado...")
-
-                  # PROMPT PARA RENTABILIDAD Y MACHINE LEARNING
-                  prompt_text = f"""
-                  Transforma este código en una versión de Machine Learning profesional, potente y rentable.
-                  
-                  OBJETIVOS:
-                  1. Implementar modelos predictivos (XGBoost/LGBM) si el archivo es de lógica.
-                  2. Optimizar la gestión de banca con Criterio de Kelly avanzado.
-                  3. Añadir ingeniería de variables (features) para maximizar el ROI.
-                  4. Asegurar que el sistema sea modular y escalable.
-
-                  CÓDIGO ORIGINAL:
-                  {original_content}
-
-                  REGLA CRÍTICA: Devuelve SOLO el código nuevo. Sin explicaciones. Sin bloques de markdown ```.
-                  """
-
-                  # Estructura de datos EXACTA a tu ejemplo de CURL
-                  payload = {
-                      "contents": [
-                          {
-                              "parts": [
-                                  {
-                                      "text": prompt_text
-                                  }
-                              ]
-                          }
-                      ]
-                  }
-
-                  response = requests.post(URL, headers=HEADERS, json=payload)
-                  
-                  if response.status_code == 200:
-                      data = response.json()
-                      if 'candidates' in data and data['candidates']:
-                          new_code = data['candidates'][0]['content']['parts'][0]['text'].strip()
-                          
-                          # Limpieza por si la IA incluye markdown a pesar de la instrucción
-                          if "```" in new_code:
-                              new_code = new_code.split("```")
-                              new_code = max(new_code, key=len).strip()
-                              if new_code.startswith("python"):
-                                  new_code = new_code[6:].strip()
-
-                          if new_code and new_code != original_content:
-                              with open(file_path, 'w', encoding='utf-8') as f:
-                                  f.write(new_code)
-                              print(f"✅ {file_path} evolucionado a versión rentable.")
-                      else:
-                          print(f"⚠️ La API no devolvió candidatos para {file_path}")
-                  else:
-                      print(f"❌ Error en API ({response.status_code}): {response.text}")
-
-                  # Delay para no exceder cuotas de la API
-                  time.sleep(5)
-
-              except Exception as e:
-                  print(f"❌ Error procesando {file_path}: {e}")
+          for root, dirs, files in os.walk('.'):
+              for file in files:
+                  if file.endswith('.py') and file != 'evolve.py':
+                      file_path = os.path.join(root, file)
+                      with open(file_path, 'r') as f: original_content = f.read()
+                      
+                      prompt = f"Optimiza este código Python para un sistema de apuestas de ML profesional. Devuelve SOLO el código:
+{original_content}"
+                      payload = {"contents": [{"parts": [{"text": prompt}]}]}
+                      
+                      try:
+                          res = requests.post(URL, json=payload, headers=HEADERS)
+                          if res.status_code == 200:
+                              new_code = res.json()['candidates'][0]['content']['parts'][0]['text']
+                              if "```" in new_code: new_code = new_code.split("```")[1].replace('python', '').strip()
+                              with open(file_path, 'w') as f: f.write(new_code)
+                              print(f"Updated {file}")
+                          time.sleep(2)
+                      except Exception as e: print(f"Error in {file}: {e}")
           EOF
+          python evolve.py
 
       - name: Save Evolutionary Changes
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "🤖 IA: Upgrade a Sistema ML Predictivo y Rentable"
-          commit_author: "Gemini ML Architect <actions@github.com>"
+          commit_message: "🤖 IA: Upgrade a Sistema ML Predictivo"
